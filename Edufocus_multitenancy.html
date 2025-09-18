@@ -1,0 +1,2415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduFocus - Student Behavior Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        html[lang="ar"] body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        .main-content {
+            transition: margin-left 0.3s ease-in-out;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .table-scrollbar::-webkit-scrollbar {
+            height: 8px;
+        }
+        .table-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #9ca3af;
+            border-radius: 4px;
+        }
+        .table-scrollbar::-webkit-scrollbar-track {
+            background-color: #e5e7eb;
+        }
+        .kpi-card {
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        #animation-wrapper .bubble {
+            position: absolute;
+            bottom: -150px;
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: float 20s linear infinite;
+        }
+        @keyframes float {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh);
+                opacity: 0;
+            }
+        }
+        @media print {
+            body {
+                background-color: #fff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            /* Hide elements not meant for printing */
+            #sidebar, header, #toast-notification, .modal-backdrop, #login-screen {
+                display: none !important;
+            }
+
+            /* Make the main content area visible and take up the whole page */
+            body * {
+                visibility: hidden;
+            }
+            #main-views-container, #main-views-container * {
+                visibility: visible;
+            }
+            #main-views-container {
+                position: static !important;
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            #app, #main-content {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            /* Reset styles for better printing */
+            .bg-white, .bg-gray-50 {
+                background-color: #fff !important;
+                box-shadow: none !important;
+                border: 1px solid #ccc !important;
+            }
+            h1, h2, h3, h4, p, span, th, td, label, input, select, textarea {
+                color: #000 !important;
+            }
+            .kpi-card, .rounded-lg {
+                page-break-inside: avoid;
+            }
+            
+            /* Re-flow grid layouts into a single column for printing */
+            .grid {
+                display: block !important;
+            }
+            .grid > * {
+                width: 100% !important;
+                margin-bottom: 20px !important;
+                page-break-inside: avoid;
+            }
+
+            /* Specific layout for KPI cards on main dashboard to be 2-column */
+            #stat-cards-container, #analytics-kpi-cards {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 1rem !important;
+            }
+             #stat-cards-container > .kpi-card, #analytics-kpi-cards > * {
+                margin-bottom: 1rem !important;
+            }
+            
+            /* Ensure charts are responsive and fit the page */
+            canvas {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+            
+            /* Table styling for print */
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                page-break-inside: auto;
+            }
+            tr, th, td {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            th, td {
+                border: 1px solid #ccc;
+                padding: 8px;
+            }
+            thead {
+                display: table-header-group; /* This is crucial for repeating headers */
+            }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="flex items-center justify-center h-screen bg-gray-100 relative overflow-hidden">
+        <div id="animation-wrapper" class="absolute inset-0"></div>
+        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm relative z-10">
+            <div class="flex items-center justify-center mb-6">
+                <i class="fas fa-graduation-cap fa-3x text-indigo-600"></i>
+                <h1 class="text-3xl font-extrabold text-gray-800 ml-3">EduFocus</h1>
+            </div>
+
+            <form id="login-form">
+                <div id="school-code-group" class="mb-4">
+                    <label for="school-code" class="block text-sm font-medium text-gray-700">School Code</label>
+                    <input type="text" id="school-code" placeholder="e.g. GIA" class="w-full px-4 py-2 mt-1 border rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="mb-4">
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="email" placeholder="you@example.com" class="w-full px-4 py-2 mt-1 border rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" placeholder="Password" class="w-full px-4 py-2 mt-1 border rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <p id="login-error" class="text-red-500 text-xs mt-1 h-4 mb-2"></p>
+                <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">Login</button>
+            </form>
+            <div class="mt-4 text-center">
+                <a href="#" id="super-admin-toggle" class="text-sm text-gray-600 hover:text-indigo-600">Login as Super Administrator</a>
+            </div>
+             <div class="mt-6 text-xs text-gray-500 text-center">
+                <p class="font-bold">Demo Credentials:</p>
+                <p><b>Super Admin:</b> super@edu.focus / super123</p>
+                <p><b>Admin+:</b> GIA / adminplus@gia.com / adminplus123</p>
+                <p><b>Admin:</b> GIA / admin@gia.com / admin123</p>
+                <p><b>Teacher:</b> GIA / teacher@gia.com / teacher123</p>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="app" class="flex h-screen bg-gray-100 hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar bg-gray-800 text-white w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 rtl:md:translate-x-0 rtl:translate-x-0 rtl:md:-translate-x-full">
+            <a href="#" class="text-white flex items-center space-x-2 px-4">
+                <i class="fas fa-graduation-cap fa-2x"></i>
+                <span class="text-2xl font-extrabold">EduFocus</span>
+            </a>
+            <nav class="flex flex-col h-[calc(100%-8rem)]">
+                <div class="flex-grow">
+                    <a href="#" class="nav-link admin-only block py-2.5 px-4 rounded transition duration-200" data-view="dashboard">
+                        <i class="fas fa-tachometer-alt mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_dashboard">Dashboard</span>
+                    </a>
+                    <a href="#" class="nav-link admin-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="all-incidents">
+                        <i class="fas fa-list-ul mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_all_incidents">All Incidents</span>
+                    </a>
+                    <a href="#" class="nav-link teacher-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="log-incident">
+                        <i class="fas fa-edit mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_log_incident">Log Incident</span>
+                    </a>
+                    <a href="#" class="nav-link admin-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="students">
+                        <i class="fas fa-users mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_students">Students</span>
+                    </a>
+                    <a href="#" class="nav-link admin-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="analytics">
+                        <i class="fas fa-chart-pie mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_analytics">Analytics</span>
+                    </a>
+                    <a href="#" class="nav-link teacher-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="confidential-report">
+                        <i class="fas fa-shield-halved mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_confidential_report">Confidential Report</span>
+                    </a>
+                     <a href="#" class="nav-link admin-plus-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="view-confidential-reports">
+                        <i class="fas fa-eye-slash mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_view_confidential">View Confidential</span>
+                    </a>
+                     <hr class="border-gray-600 my-4">
+                     <a href="#" class="nav-link super-admin-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="manage-schools">
+                        <i class="fas fa-school mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_manage_schools">Manage Schools</span>
+                     </a>
+                     <a href="#" class="nav-link admin-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="manage-users">
+                        <i class="fas fa-user-cog mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_manage_users">Manage Users</span>
+                     </a>
+                     <a href="#" class="nav-link super-admin-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="manage-tiers">
+                        <i class="fas fa-layer-group mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_manage_tiers">Manage Tiers</span>
+                    </a>
+                    <a href="#" class="nav-link admin-only block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700" data-view="manage-awards">
+                        <i class="fas fa-award mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_manage_awards">Manage Awards</span>
+                    </a>
+                </div>
+                <div class="mt-auto">
+                     <a href="#" id="logout-btn" class="block py-2.5 px-4 rounded transition duration-200 text-red-400 hover:bg-red-500 hover:text-white">
+                         <i class="fas fa-sign-out-alt mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="nav_logout">Logout</span>
+                     </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main content -->
+        <div id="main-content" class="main-content flex-1 flex flex-col overflow-hidden">
+            <header class="flex justify-between items-center p-4 bg-white border-b-2 border-gray-100">
+                <div class="flex items-center">
+                    <button id="menu-button" class="text-gray-500 focus:outline-none md:hidden">
+                        <i class="fas fa-bars fa-lg"></i>
+                    </button>
+                    <div class="ml-4 rtl:mr-4 rtl:ml-0">
+                         <h1 id="view-title" class="text-2xl font-semibold text-gray-800" data-lang-key="dashboard_title">Dashboard</h1>
+                         <div id="school-context-header" class="text-sm text-gray-500"></div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 rtl:space-x-reverse">
+                    <div id="school-selector-group" class="hidden">
+                        <select id="school-selector" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                            <option value="" data-lang-key="all_schools">All Schools</option>
+                        </select>
+                    </div>
+                     <div class="flex items-center border rounded-lg overflow-hidden">
+                          <button id="lang-en-btn" class="px-3 py-1 text-sm font-bold bg-indigo-600 text-white">EN</button>
+                          <button id="lang-ar-btn" class="px-3 py-1 text-sm font-bold bg-white text-gray-600">AR</button>
+                     </div>
+                     <button id="back-btn" class="bg-gray-600 text-white font-bold p-2 text-sm rounded-lg hover:bg-gray-700 transition duration-300 hidden">
+                          <i class="fas fa-arrow-left mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="back_btn">Back</span>
+                     </button>
+                      <button id="print-report-btn" class="bg-gray-500 text-white font-bold p-2 text-sm rounded-lg hover:bg-gray-600 transition duration-300">
+                         <i class="fas fa-print mr-1 rtl:ml-1 rtl:mr-0"></i><span data-lang-key="print_report_btn">Print</span>
+                     </button>
+                     <button id="download-report-btn" class="bg-green-600 text-white font-bold p-2 text-sm rounded-lg hover:bg-green-700 transition duration-300">
+                         <i class="fas fa-file-excel mr-1 rtl:ml-1 rtl:mr-0"></i><span data-lang-key="download_report_btn">Download</span>
+                     </button>
+                </div>
+            </header>
+            
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-6" id="main-views-container">
+                <!-- Views will be dynamically inserted here -->
+            </main>
+        </div>
+    </div>
+    
+    <!-- MODALS -->
+    
+    <!-- ADD/EDIT AWARD TYPE MODAL -->
+    <div id="award-type-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h2 id="award-type-modal-title" class="text-xl font-bold text-gray-800">Add Award Type</h2>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800" data-modal-id="award-type-modal">&times;</button>
+            </header>
+            <form id="award-type-form" class="p-6">
+                <input type="hidden" id="award-type-id">
+                <div class="mb-4">
+                    <label for="award-type-name" class="block text-sm font-medium text-gray-700">Award Name</label>
+                    <input type="text" id="award-type-name" class="mt-1 block w-full rounded-md border-gray-300" required>
+                </div>
+                 <div class="mb-4">
+                    <label for="award-type-points" class="block text-sm font-medium text-gray-700">Points</label>
+                    <input type="number" id="award-type-points" class="mt-1 block w-full rounded-md border-gray-300" required min="0">
+                </div>
+                 <div class="mb-4">
+                    <label for="award-type-icon" class="block text-sm font-medium text-gray-700">Font Awesome Icon Class (e.g., fas fa-crown)</label>
+                    <input type="text" id="award-type-icon" class="mt-1 block w-full rounded-md border-gray-300" required>
+                </div>
+                 <div class="mb-4">
+                    <label for="award-type-color" class="block text-sm font-medium text-gray-700">Badge Color</label>
+                    <input type="color" id="award-type-color" class="mt-1 block w-full h-10 rounded-md border-gray-300" value="#fefcbf" required>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg">Save Award Type</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ADD/EDIT SCHOOL MODAL -->
+    <div id="school-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h2 id="school-modal-title" class="text-xl font-bold text-gray-800" data-lang-key="add_school">Add School</h2>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800" data-modal-id="school-modal">&times;</button>
+            </header>
+            <form id="school-form" class="p-6">
+                <input type="hidden" id="school-id">
+                <div class="mb-4">
+                    <label for="school-name" class="block text-sm font-medium text-gray-700" data-lang-key="school_name">School Name</label>
+                    <input type="text" id="school-name" class="mt-1 block w-full rounded-md border-gray-300" required>
+                </div>
+                <div class="mb-4">
+                    <label for="school-form-code" class="block text-sm font-medium text-gray-700" data-lang-key="school_code_unique">School Code (Unique, 3-5 letters)</label>
+                    <input type="text" id="school-form-code" class="mt-1 block w-full rounded-md border-gray-300" required minlength="3" maxlength="5">
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg" data-lang-key="save_school">Save School</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT USER MODAL -->
+    <div id="user-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h2 id="user-modal-title" class="text-xl font-bold text-gray-800" data-lang-key="add_user">Add User</h2>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800" data-modal-id="user-modal">&times;</button>
+            </header>
+            <form id="user-form" class="p-6">
+                <input type="hidden" id="user-id">
+                <div class="mb-4">
+                    <label for="user-name" class="block text-sm font-medium text-gray-700" data-lang-key="full_name">Full Name</label>
+                    <input type="text" id="user-name" class="mt-1 block w-full rounded-md border-gray-300" required>
+                </div>
+                 <div class="mb-4">
+                    <label for="user-email" class="block text-sm font-medium text-gray-700" data-lang-key="email">Email</label>
+                    <input type="email" id="user-email" class="mt-1 block w-full rounded-md border-gray-300" required>
+                </div>
+                <div class="mb-4">
+                    <label for="user-password" class="block text-sm font-medium text-gray-700" data-lang-key="password">Password</label>
+                    <input type="password" id="user-password" class="mt-1 block w-full rounded-md border-gray-300">
+                    <p id="password-hint" class="text-xs text-gray-500 mt-1" data-lang-key="password_hint">Leave blank to keep current password.</p>
+                </div>
+                 <div class="mb-4">
+                     <label for="user-role" class="block text-sm font-medium text-gray-700" data-lang-key="role">Role</label>
+                     <select id="user-role" class="mt-1 block w-full rounded-md border-gray-300" required>
+                         <option value="teacher" data-lang-key="teacher">Teacher</option>
+                         <option value="admin" data-lang-key="admin">Admin</option>
+                     </select>
+                 </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg" data-lang-key="save_user">Save User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- EDIT INCIDENT MODAL -->
+    <div id="edit-incident-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h2 class="text-xl font-bold text-gray-800" data-lang-key="edit_incident_details">Edit Incident Details</h2>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800" data-modal-id="edit-incident-modal">&times;</button>
+            </header>
+            <form id="edit-incident-form" class="p-6">
+                <input type="hidden" id="edit-incident-id">
+                <div class="mb-4">
+                    <label for="edit-incident-status" class="block text-sm font-medium text-gray-700" data-lang-key="status">Status</label>
+                    <select id="edit-incident-status" class="mt-1 block w-full rounded-md border-gray-300" required>
+                        <option value="Pending" data-lang-key="status_pending">Pending</option>
+                        <option value="Resolved" data-lang-key="status_resolved">Resolved</option>
+                        <option value="Escalated" data-lang-key="status_escalated">Escalated</option>
+                        <option value="In-School Suspension" data-lang-key="status_in_school_suspension">In-School Suspension</option>
+                        <option value="Suspended" data-lang-key="status_suspended">Suspended</option>
+                        <option value="Parent Informed" data-lang-key="status_parent_informed">Parent Informed</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="edit-incident-remarks" class="block text-sm font-medium text-gray-700" data-lang-key="remarks">Remarks</label>
+                    <textarea id="edit-incident-remarks" rows="2" class="mt-1 block w-full rounded-md border-gray-300"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="edit-academic-summary" class="block text-sm font-medium text-gray-700" data-lang-key="academic_summary">Academic Summary</label>
+                    <select id="edit-academic-summary" class="mt-1 block w-full rounded-md border-gray-300" required>
+                        <option data-lang-key="academic_emerging">Emerging</option>
+                        <option data-lang-key="academic_working_towards">Working Towards</option>
+                        <option data-lang-key="academic_meeting">Meeting Expectations</option>
+                        <option data-lang-key="academic_exceeding">Exceeding Expectations</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700" data-lang-key="attitude_to_learning">Attitude to Learning</label>
+                    <div id="edit-attitude-checklist" class="mt-2 grid grid-cols-2 gap-2">
+                        <!-- Checkboxes will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-between items-center">
+                    <button type="button" id="modal-award-behavior-btn" class="award-behavior-btn bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition duration-300" data-lang-key="award_behavior">Award Behavior</button>
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg" data-lang-key="save_changes">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- AWARD BEHAVIOR MODAL -->
+    <div id="award-behavior-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h2 class="text-xl font-bold text-gray-800" data-lang-key="award_positive_behavior">Award Positive Behavior</h2>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800" data-modal-id="award-behavior-modal">&times;</button>
+            </header>
+            <form id="award-behavior-form" class="p-6">
+                <input type="hidden" id="award-student-id">
+                <p id="award-student-name" class="text-lg font-medium text-gray-800 mb-4"></p>
+                <div class="mb-4">
+                    <label for="behavior-type" class="block text-sm font-medium text-gray-700" data-lang-key="behavior_type">Behavior Type</label>
+                    <select id="behavior-type" class="mt-1 block w-full rounded-md border-gray-300" required>
+                        <!-- Behaviors will be dynamically added here -->
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="award-notes" class="block text-sm font-medium text-gray-700" data-lang-key="notes_optional">Notes (Optional)</label>
+                    <textarea id="award-notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300"></textarea>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg" data-lang-key="award_behavior">Award Behavior</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BULK UPLOAD STUDENTS MODAL -->
+    <div id="bulk-upload-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-xl">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h2 class="text-xl font-bold text-gray-800" data-lang-key="bulk_upload_students">Bulk Upload Students</h2>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800" data-modal-id="bulk-upload-modal">&times;</button>
+            </header>
+            <form id="bulk-upload-form" class="p-6">
+                <div class="mb-4">
+                    <label for="student-csv-data" class="block text-sm font-medium text-gray-700" data-lang-key="paste_csv_data">Paste CSV Data</label>
+                    <textarea id="student-csv-data" rows="10" class="mt-1 block w-full rounded-md border-gray-300 font-mono text-sm" placeholder="name,grade,gender,nationality&#10;John Smith,10A,Male,American&#10;Jane Doe,9B,Female,Canadian"></textarea>
+                    <p class="text-xs text-gray-500 mt-1" data-lang-key="csv_format_hint">Required format: name,grade,gender,nationality. Each student on a new line.</p>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg" data-lang-key="upload_students">Upload Students</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT TIER MODAL -->
+    <div id="tier-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-lg">
+            <header class="flex justify-between items-center p-4 border-b">
+                <h2 id="tier-modal-title" class="text-xl font-bold text-gray-800" data-lang-key="add_tier">Add Tier</h2>
+                <button class="close-modal-btn text-gray-500 hover:text-gray-800" data-modal-id="tier-modal">&times;</button>
+            </header>
+            <form id="tier-form" class="p-6">
+                <input type="hidden" id="tier-id">
+                <input type="hidden" id="tier-school-id">
+                <div class="mb-4">
+                    <label for="tier-number" class="block text-sm font-medium text-gray-700" data-lang-key="tier_number">Tier Number</label>
+                    <input type="number" id="tier-number" class="mt-1 block w-full rounded-md border-gray-300" required min="1">
+                </div>
+                 <div class="mb-4">
+                    <label for="tier-color" class="block text-sm font-medium text-gray-700">Color</label>
+                    <input type="color" id="tier-color" class="mt-1 block w-full h-10 rounded-md border-gray-300" value="#6366f1" required>
+                </div>
+                <div class="mb-4">
+                    <label for="tier-description-form" class="block text-sm font-medium text-gray-700" data-lang-key="description">Description</label>
+                    <textarea id="tier-description-form" rows="4" class="mt-1 block w-full rounded-md border-gray-300" required></textarea>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg" data-lang-key="save_tier">Save Tier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Notification Toast -->
+    <div id="toast-notification" class="fixed top-5 right-5 rtl:left-5 rtl:right-auto bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transform translate-x-full rtl:-translate-x-full transition-transform duration-300 z-[60]">
+        Notification
+    </div>
+
+<script>
+    // --- App Configuration ---
+    // In-memory data store for this client-side application.
+    // Note: In a real application, this data would come from a database.
+    let localData = {
+        users: [
+            { id: 'sa1', name: 'Super Admin', email: 'super@edu.focus', password: 'super123', role: 'super-admin', schoolId: null },
+            { id: 'u1', name: 'GIA Admin', email: 'admin@gia.com', password: 'admin123', role: 'admin', schoolId: 's1' },
+            { id: 'u5', name: 'GIA Admin Plus', email: 'adminplus@gia.com', password: 'adminplus123', role: 'admin+', schoolId: 's1' },
+            { id: 'u2', name: 'GIA Teacher', email: 'teacher@gia.com', password: 'teacher123', role: 'teacher', schoolId: 's1' },
+            { id: 'u3', name: 'HIA Admin', email: 'admin@hia.com', password: 'admin123', role: 'admin', schoolId: 's2' },
+            { id: 'u4', name: 'HIA Teacher', email: 'teacher@hia.com', password: 'teacher123', role: 'teacher', schoolId: 's2' },
+        ],
+        schools: [
+            { id: 's1', name: 'Global International Academy', code: 'GIA', adminCount: 1 },
+            { id: 's2', name: 'Heritage International Academy', code: 'HIA', adminCount: 1 },
+        ],
+        students: [
+            { id: 'st1', name: 'Alex Johnson', schoolId: 's1', grade: '10A', gender: 'Male', nationality: 'American' },
+            { id: 'st2', name: 'Maria Rodriguez', schoolId: 's1', grade: '9B', gender: 'Female', nationality: 'Spanish' },
+            { id: 'st3', name: 'David Lee', schoolId: 's2', grade: '11C', gender: 'Male', nationality: 'Canadian' },
+            { id: 'st4', name: 'Sarah Chen', schoolId: 's2', grade: '8A', gender: 'Female', nationality: 'Chinese' },
+            { id: 'st5', name: 'John Doe', schoolId: 's2', grade: '9B', gender: 'Male', nationality: 'British' },
+        ],
+        incidents: [
+            { id: 'i1', studentId: 'st1', studentName: 'Alex Johnson', grade: '10A', tier: 2, location: 'Hallway', datetime: '2025-09-01T10:30', lastModified: '2025-09-01T10:30', description: 'Repeatedly tardy to class.', remarks: 'Student was unapologetic.', reportedBy: 'GIA Teacher', status: 'Resolved', schoolId: 's1', academicSummary: 'Meeting Expectations', attitudeToLearning: ['Punctual'] },
+            { id: 'i2', studentId: 'st1', studentName: 'Alex Johnson', grade: '10A', tier: 1, location: 'Classroom 12', datetime: '2025-09-03T11:00', lastModified: '2025-09-03T11:00', description: 'Using phone during lecture.', remarks: '', reportedBy: 'GIA Admin', status: 'Resolved', schoolId: 's1', academicSummary: 'Meeting Expectations', attitudeToLearning: ['Attentive'] },
+            { id: 'i3', studentId: 'st2', studentName: 'Maria Rodriguez', grade: '9B', tier: 3, location: 'Cafeteria', datetime: '2025-09-05T12:45', lastModified: '2025-09-05T12:45', description: 'Verbal altercation with another student.', remarks: 'Both students were sent to the office.', reportedBy: 'GIA Teacher', status: 'In Progress', schoolId: 's1', academicSummary: 'Working Towards', attitudeToLearning: ['Disruptive'] },
+            { id: 'i4', studentId: 'st3', studentName: 'David Lee', grade: '11C', tier: 1, location: 'Library', datetime: '2025-09-02T14:00', lastModified: '2025-09-02T14:00', description: 'Not following library rules.', remarks: '', reportedBy: 'HIA Teacher', status: 'Resolved', schoolId: 's2', academicSummary: 'Exceeding Expectations', attitudeToLearning: ['Independent Learner'] },
+            { id: 'i5', studentId: 'st4', studentName: 'Sarah Chen', grade: '8A', tier: 2, location: 'Playground', datetime: '2025-09-04T15:30', lastModified: '2025-09-04T15:30', description: 'Minor physical altercation.', remarks: 'Parents were called.', reportedBy: 'HIA Admin', status: 'Pending', schoolId: 's2', academicSummary: 'Emerging', attitudeToLearning: ['Disruptive'] },
+            { id: 'i6', studentId: 'st1', studentName: 'Alex Johnson', grade: '10A', tier: 2, location: 'Hallway', datetime: '2025-09-06T09:45', lastModified: '2025-09-06T09:45', description: 'Running in the hallway.', remarks: '', reportedBy: 'GIA Teacher', status: 'Resolved', schoolId: 's1', academicSummary: 'Meeting Expectations', attitudeToLearning: ['Punctual'] },
+            { id: 'i7', studentId: 'st2', studentName: 'Maria Rodriguez', grade: '9B', tier: 1, location: 'Classroom 9', datetime: '2025-09-07T13:00', lastModified: '2025-09-07T13:00', description: 'Cheating on a test.', remarks: '', reportedBy: 'GIA Admin', status: 'Pending', schoolId: 's1', academicSummary: 'Working Towards', attitudeToLearning: ['Misses Lessons'] },
+            { id: 'i8', studentId: 'st5', studentName: 'John Doe', grade: '9B', tier: 2, location: 'Cafeteria', datetime: '2025-09-08T12:15', lastModified: '2025-09-08T12:15', description: 'Throwing food.', remarks: '', reportedBy: 'HIA Teacher', status: 'Pending', schoolId: 's2', academicSummary: 'Meeting Expectations', attitudeToLearning: ['Disruptive'] },
+            { id: 'i9', studentId: 'st4', studentName: 'Sarah Chen', grade: '8A', tier: 1, location: 'Art Room', datetime: '2025-09-09T14:30', lastModified: '2025-09-09T14:30', description: 'Messy art station.', remarks: '', reportedBy: 'HIA Teacher', status: 'Resolved', schoolId: 's2', academicSummary: 'Meeting Expectations', attitudeToLearning: ['Team Member'] },
+        ],
+        tiers: [
+            { id: 't1', schoolId: 's1', tierNumber: 1, color: '#6366f1', description: 'Minor misconduct managed in the classroom (e.g., cell phone, tardiness).' },
+            { id: 't2', schoolId: 's1', tierNumber: 2, color: '#3b82f6', description: 'Moderate misconduct disrupting learning (e.g., cheating, defiance).' },
+            { id: 't3', schoolId: 's1', tierNumber: 3, color: '#ef4444', description: 'Serious misconduct, risk to others/property (e.g., fighting, theft).' },
+            { id: 't4', schoolId: 's1', tierNumber: 4, color: '#b91c1c', description: 'Critical/illegal offenses (e.g., possession of illegal substances, assault).' },
+            { id: 't5', schoolId: 's2', tierNumber: 1, color: '#22c55e', description: 'Level 1: Teacher-level intervention.' },
+            { id: 't6', schoolId: 's2', tierNumber: 2, color: '#f97316', description: 'Level 2: Administrator-level intervention.' },
+            { id: 't7', schoolId: 's2', tierNumber: 3, color: '#dc2626', description: 'Level 3: Suspension/Expulsion.' },
+        ],
+        confidentialReports: [
+            { id: 'cr1', subject: 'Bullying Concern', description: 'Witnessed a student being bullied on the playground.', report_date: '2025-09-06T10:00', reportedBy: 'GIA Teacher', schoolId: 's1' }
+        ],
+        positiveActions: [
+            { id: 'pa1', studentId: 'st1', studentName: 'Alex Johnson', behavior: 'Exceptional Teamwork', points: 8, reportedBy: 'GIA Teacher', date: '2025-09-02', schoolId: 's1' },
+            { id: 'pa2', studentId: 'st3', studentName: 'David Lee', behavior: 'Excellent Leadership', points: 10, reportedBy: 'HIA Teacher', date: '2025-09-03', schoolId: 's2' },
+            { id: 'pa3', studentId: 'st1', studentName: 'Alex Johnson', behavior: 'Active Class Participation', points: 5, reportedBy: 'GIA Teacher', date: '2025-09-04', schoolId: 's1' },
+        ],
+        positiveBehaviors: [
+             { name: "Excellent Leadership", points: 10, icon: 'fas fa-crown', color: '#facc15' },
+             { name: "Exceptional Teamwork", points: 8, icon: 'fas fa-users', color: '#3b82f6' },
+             { name: "Helping a Classmate", points: 5, icon: 'fas fa-hands-helping', color: '#22c55e' },
+             { name: "Active Class Participation", points: 5, icon: 'fas fa-comment-dots', color: '#6366f1' },
+             { name: "Kindness and Respect", points: 5, icon: 'fas fa-heart', color: '#ec4899' },
+             { name: "Hard Work and Dedication", points: 8, icon: 'fas fa-dumbbell', color: '#6b7280' },
+             { name: "Academic Excellence", points: 10, icon: 'fas fa-graduation-cap', color: '#a855f7' },
+             { name: "Positive Attitude", points: 5, icon: 'fas fa-smile', color: '#f97316' }
+        ]
+    };
+
+    // --- VIEW TEMPLATES ---
+    const viewTemplates = {
+        'dashboard': `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-6 mb-6" id="stat-cards-container">
+                <!-- KPI cards will be dynamically inserted here -->
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-1">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="incidents_by_tier">Incidents by Tier</h2>
+                    <div class="h-80"><canvas id="tier-chart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-1">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="incidents_by_status">Incidents by Status</h2>
+                    <div class="h-80"><canvas id="status-chart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-1">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="awards_by_type">Awards by Type</h2>
+                    <div class="h-80"><canvas id="awards-chart"></canvas></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="recent_incidents">Recent Incidents</h2>
+                    <div class="overflow-x-auto table-scrollbar">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="student">Student</th>
+                                    <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="tier">Tier</th>
+                                    <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="date">Date</th>
+                                    <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="status">Status</th>
+                                    <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="recent-incidents-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+                 <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="student_spotlight">Student Spotlight</h2>
+                    <div class="space-y-3" id="student-spotlight"></div>
+                </div>
+            </div>
+        `,
+        'all-incidents': `
+            <div class="bg-white rounded-lg shadow-md p-6">
+                 <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800" data-lang-key="nav_all_incidents">All Incidents</h2>
+                 </div>
+                 <!-- Filter Section -->
+                 <div id="filters" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg border">
+                    <div>
+                        <label for="filter-search" class="block text-sm font-medium text-gray-700" data-lang-key="search">Search</label>
+                        <input type="text" id="filter-search" placeholder="Name or Status..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="filter-grade" class="block text-sm font-medium text-gray-700" data-lang-key="grade">Grade</label>
+                        <select id="filter-grade" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            <option value="" data-lang-key="all">All</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-date" class="block text-sm font-medium text-gray-700" data-lang-key="date">Date</label>
+                        <input type="date" id="filter-date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div class="flex items-end space-x-2 rtl:space-x-reverse">
+                        <button id="filter-apply-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg w-full" data-lang-key="filter">Filter</button>
+                        <button id="filter-clear-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg w-full" data-lang-key="clear">Clear</button>
+                    </div>
+                 </div>
+                 <div class="overflow-x-auto table-scrollbar">
+                     <table class="min-w-full divide-y divide-gray-200">
+                         <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="student">Student</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="tier">Tier</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="date">Date</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="reported_by">Reported By</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="status">Status</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="actions">Actions</th>
+                            </tr>
+                        </thead>
+                         <tbody class="bg-white divide-y divide-gray-200" id="all-incidents-table"></tbody>
+                     </table>
+                 </div>
+            </div>
+        `,
+        'log-incident': `
+            <div class="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
+                <form id="log-incident-form">
+                    <div class="mb-4">
+                        <label for="student-name" class="block text-sm font-medium text-gray-700" data-lang-key="student_name">Student Name</label>
+                        <input type="text" id="student-name" list="student-list-datalist" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                        <datalist id="student-list-datalist"></datalist>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="student-gender" class="block text-sm font-medium text-gray-700" data-lang-key="gender">Gender</label>
+                            <select id="student-gender" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                                <option value="Male" data-lang-key="male">Male</option>
+                                <option value="Female" data-lang-key="female">Female</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="student-nationality" class="block text-sm font-medium text-gray-700" data-lang-key="nationality">Nationality</label>
+                            <input type="text" id="student-nationality" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="mb-4">
+                            <label for="student-grade" class="block text-sm font-medium text-gray-700" data-lang-key="student_grade_class">Student Grade/Class</label>
+                            <input type="text" id="student-grade" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="incident-tier" class="block text-sm font-medium text-gray-700" data-lang-key="incident_tier">Incident Tier</label>
+                            <select id="incident-tier" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                                <option value="" disabled selected data-lang-key="select_tier">Select a Tier</option>
+                            </select>
+                            <p id="tier-description" class="text-xs text-gray-500 mt-1"></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="mb-4">
+                            <label for="incident-location" class="block text-sm font-medium text-gray-700" data-lang-key="location">Location</label>
+                            <input type="text" id="incident-location" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="incident-datetime" class="block text-sm font-medium text-gray-700" data-lang-key="date_time">Date & Time</label>
+                            <input type="datetime-local" id="incident-datetime" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="incident-description" class="block text-sm font-medium text-gray-700" data-lang-key="description">Description</label>
+                        <textarea id="incident-description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required></textarea>
+                    </div>
+                     <div class="mb-4">
+                        <label for="incident-remarks" class="block text-sm font-medium text-gray-700" data-lang-key="remarks">Remarks</label>
+                        <textarea id="incident-remarks" rows="2" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50"></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="teacher-name" class="block text-sm font-medium text-gray-700" data-lang-key="reported_by">Reported By</label>
+                        <input type="text" id="teacher-name" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-100" readonly required>
+                    </div>
+                    <div class="mt-6">
+                        <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300" data-lang-key="submit_incident">Submit Incident</button>
+                    </div>
+                </form>
+            </div>
+        `,
+        'students': `
+            <div class="bg-white rounded-lg shadow-md p-6">
+                 <div class="flex justify-between items-center mb-4">
+                     <h2 class="text-xl font-semibold text-gray-800" data-lang-key="student_records">Student Records</h2>
+                     <div class="flex space-x-2 rtl:space-x-reverse">
+                        <button id="bulk-upload-btn" class="bg-teal-600 text-white font-bold p-2 text-sm rounded-lg hover:bg-teal-700 transition duration-300">
+                            <i class="fas fa-upload mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="bulk_upload">Bulk Upload</span>
+                        </button>
+                        <button id="add-student-btn" class="bg-indigo-600 text-white font-bold p-2 text-sm rounded-lg hover:bg-indigo-700 transition duration-300">
+                            <i class="fas fa-plus mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="add_student">Add Student</span>
+                        </button>
+                     </div>
+                 </div>
+                 <div class="overflow-x-auto table-scrollbar">
+                     <table class="min-w-full divide-y divide-gray-200">
+                         <thead class="bg-gray-50">
+                             <tr>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="name">Name</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="grade">Grade</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="total_incidents">Total Incidents</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="highest_tier">Highest Tier</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="positive_actions">Positive Actions</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="academic_summary">Academic Summary</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="attitude_to_learning">Attitude to Learning</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="actions">Actions</th>
+                             </tr>
+                         </thead>
+                         <tbody class="bg-white divide-y divide-gray-200" id="students-table"></tbody>
+                     </table>
+                 </div>
+            </div>
+        `,
+        'analytics': `
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="behavior_analytics">Behavior Analytics</h2>
+                <div id="analytics-kpi-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4 border flex items-center">
+                        <div class="p-3 bg-blue-100 rounded-full">
+                            <i class="fas fa-chart-line fa-lg text-blue-600"></i>
+                        </div>
+                        <div class="ml-4 rtl:mr-4">
+                            <p class="text-sm text-gray-500" data-lang-key="avg_incidents_day">Avg. Incidents/Day</p>
+                            <p id="avg-incidents-per-day" class="text-2xl font-semibold text-gray-800">-</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 border flex items-center">
+                        <div class="p-3 bg-green-100 rounded-full">
+                            <i class="fas fa-map-pin fa-lg text-green-600"></i>
+                        </div>
+                        <div class="ml-4 rtl:mr-4">
+                            <p class="text-sm text-gray-500" data-lang-key="most_common_location">Most Common Location</p>
+                            <p id="most-common-location" class="text-2xl font-semibold text-gray-800">-</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 border flex items-center">
+                         <div class="p-3 bg-red-100 rounded-full">
+                            <i class="fas fa-clock fa-lg text-red-600"></i>
+                        </div>
+                        <div class="ml-4 rtl:mr-4">
+                            <p class="text-sm text-gray-500" data-lang-key="peak_incident_time">Peak Incident Time</p>
+                            <p id="peak-incident-time" class="text-2xl font-semibold text-gray-800">-</p>
+                            <p id="peak-incident-time-range" class="text-xs text-gray-500"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4" data-lang-key="incidents_over_time">Incidents Over Time</h3>
+                    <div class="h-80"><canvas id="incidents-over-time-chart"></canvas></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4" data-lang-key="incidents_by_location">Incidents by Location</h3>
+                    <div class="h-80"><canvas id="incidents-by-location-chart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4" data-lang-key="incidents_by_grade">Incidents by Grade</h3>
+                    <div class="h-80"><canvas id="incidents-by-grade-chart"></canvas></div>
+                </div>
+            </div>
+        `,
+        'confidential-report': `
+             <div class="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
+                <form id="confidential-report-form">
+                     <p class="text-gray-600 mb-4" data-lang-key="confidential_report_desc">Use this form to report sensitive incidents or concerns discreetly. Your identity will remain confidential.</p>
+                     <div class="mb-4">
+                        <label for="confidential-subject" class="block text-sm font-medium text-gray-700" data-lang-key="subject">Subject</label>
+                        <input type="text" id="confidential-subject" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="confidential-description" class="block text-sm font-medium text-gray-700" data-lang-key="description">Description</label>
+                        <textarea id="confidential-description" rows="5" class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50" required></textarea>
+                    </div>
+                    <div class="mt-6">
+                        <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300" data-lang-key="submit_report">Submit Report</button>
+                    </div>
+                </form>
+            </div>
+        `,
+        'view-confidential-reports': `
+             <div class="bg-white rounded-lg shadow-md p-6">
+                 <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="nav_view_confidential">Confidential Reports</h2>
+                 <p class="text-gray-600 mb-4" data-lang-key="confidential_view_desc">This view displays sensitive reports that are only accessible to administrators.</p>
+                 <div class="overflow-x-auto table-scrollbar">
+                     <table class="min-w-full divide-y divide-gray-200">
+                         <thead class="bg-gray-50">
+                             <tr>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="date">Date</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="subject">Subject</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="description">Description</th>
+                             </tr>
+                         </thead>
+                         <tbody class="bg-white divide-y divide-gray-200" id="confidential-reports-table"></tbody>
+                     </table>
+                 </div>
+            </div>
+        `,
+        'manage-schools': `
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800" data-lang-key="nav_manage_schools">Manage Schools</h2>
+                    <button id="add-school-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">
+                        <i class="fas fa-plus mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="add_school">Add School</span>
+                    </button>
+                </div>
+                <div class="overflow-x-auto table-scrollbar">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="school_name">School Name</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="code">Code</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="admins">Admins</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="schools-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        `,
+        'manage-users': `
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800" data-lang-key="nav_manage_users">Manage Users</h2>
+                    <button id="add-user-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">
+                        <i class="fas fa-plus mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="add_user">Add User</span>
+                    </button>
+                </div>
+                <div class="overflow-x-auto table-scrollbar">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="name">Name</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="email">Email</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="role">Role</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="users-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        `,
+        'student-dashboard': `
+            <div id="student-dashboard-content">
+                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <div class="flex items-center">
+                        <i class="fas fa-user-circle text-indigo-500 fa-4x rtl:ml-4"></i>
+                        <div class="ml-4 rtl:mr-4">
+                            <h2 id="student-dashboard-name" class="text-3xl font-bold text-gray-800">-</h2>
+                            <p id="student-dashboard-details" class="text-gray-600">-</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- LATEST BEHAVIORAL SNAPSHOT -->
+                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="latest_behavioral_snapshot">Latest Behavioral Snapshot</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500" data-lang-key="academic_summary">Academic Summary</p>
+                            <p id="student-dashboard-academic" class="text-lg font-semibold text-gray-800">-</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500" data-lang-key="attitude_to_learning">Attitude to Learning</p>
+                            <p id="student-dashboard-attitude" class="text-lg font-semibold text-gray-800">-</p>
+                        </div>
+                    </div>
+                     <p class="text-xs text-gray-400 mt-2" data-lang-key="latest_incident_note">From most recent incident record.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6" id="student-kpi-cards"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="incidents_log">Incidents Log</h3>
+                         <div class="overflow-y-auto max-h-[34rem] table-scrollbar pr-2" id="student-incidents-list"></div>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="incidents_by_tier">Incidents by Tier</h3>
+                            <div class="h-56"><canvas id="student-tier-chart"></canvas></div>
+                        </div>
+                         <div class="bg-white rounded-lg shadow-md p-6">
+                             <h3 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="positive_actions_log">Awards & Badges</h3>
+                             <div id="student-positive-actions-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+        'manage-tiers': `
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                     <div>
+                        <h2 class="text-xl font-semibold text-gray-800" data-lang-key="nav_manage_tiers">Manage Tiers</h2>
+                        <label for="tier-school-selector" class="text-sm text-gray-600" data-lang-key="select_school">Select School:</label>
+                        <select id="tier-school-selector" class="mt-1 rounded-md border-gray-300"></select>
+                     </div>
+                     <button id="add-tier-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">
+                         <i class="fas fa-plus mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="add_tier">Add Tier</span>
+                     </button>
+                 </div>
+                 <div class="overflow-x-auto table-scrollbar">
+                     <table class="min-w-full divide-y divide-gray-200">
+                         <thead class="bg-gray-50">
+                             <tr>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="tier_number">Tier Number</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="description">Description</th>
+                                 <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="actions">Actions</th>
+                             </tr>
+                         </thead>
+                         <tbody class="bg-white divide-y divide-gray-200" id="tiers-table"></tbody>
+                     </table>
+                 </div>
+            </div>
+        `,
+            'manage-awards': `
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800" data-lang-key="nav_manage_awards">Manage Award Types</h2>
+                    <button id="add-award-type-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">
+                        <i class="fas fa-plus mr-2 rtl:ml-2 rtl:mr-0"></i><span data-lang-key="add_award_type">Add Award Type</span>
+                    </button>
+                </div>
+                <div class="overflow-x-auto table-scrollbar">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="award_name">Award Name</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="points">Points</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="icon">Icon</th>
+                                <th scope="col" class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" data-lang-key="actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="award-types-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        `,
+    };
+
+    // --- Global State ---
+    let currentUser = null;
+    let currentSchoolId = null;
+    let previousView = 'dashboard';
+    let currentView = 'dashboard';
+    let currentStudentId = null; 
+
+
+    // --- Chart instances
+    let tierChart, statusChart, timeChart, locationChart, gradeChart, studentTierChart, awardsChart;
+
+    // --- DOM Elements ---
+    const loginScreen = document.getElementById('login-screen');
+    const appContainer = document.getElementById('app');
+    const loginForm = document.getElementById('login-form');
+    const schoolCodeGroup = document.getElementById('school-code-group');
+    const superAdminToggle = document.getElementById('super-admin-toggle');
+    const schoolCodeInput = document.getElementById('school-code');
+    const logoutBtn = document.getElementById('logout-btn');
+    const schoolSelectorGroup = document.getElementById('school-selector-group');
+    const schoolSelector = document.getElementById('school-selector');
+    const schoolContextHeader = document.getElementById('school-context-header');
+    const mainViewsContainer = document.getElementById('main-views-container');
+    const viewTitle = document.getElementById('view-title');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const backBtn = document.getElementById('back-btn');
+    const menuButton = document.getElementById('menu-button');
+    const sidebar = document.getElementById('sidebar');
+    
+    // --- TRANSLATION CAPTURE ---
+    function captureDefaultTranslations() {
+        document.querySelectorAll('[data-lang-key]').forEach(el => {
+            const key = el.dataset.langKey;
+            if (!translations.en[key]) {
+                translations.en[key] = el.textContent.trim();
+            }
+        });
+    }
+    
+    // --- AUTH & LOGIN ---
+    function init() {
+        loginForm.addEventListener('submit', handleLogin);
+        superAdminToggle.addEventListener('click', toggleSuperAdminLogin);
+        logoutBtn.addEventListener('click', handleLogout);
+        schoolSelector.addEventListener('change', handleSchoolFilterChange);
+        backBtn.addEventListener('click', () => switchView(previousView));
+        
+        document.getElementById('lang-en-btn').addEventListener('click', () => setLanguage('en'));
+        document.getElementById('lang-ar-btn').addEventListener('click', () => setLanguage('ar'));
+        document.getElementById('download-report-btn').addEventListener('click', downloadExcelReport);
+        document.getElementById('print-report-btn').addEventListener('click', () => window.print());
+
+        captureDefaultTranslations();
+        createAnimatedBackground();
+        
+        menuButton.addEventListener('click', () => {
+            sidebar.classList.toggle('-translate-x-full');
+            sidebar.classList.toggle('rtl:translate-x-full');
+        });
+        
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchView(link.dataset.view);
+            });
+        });
+        
+        document.addEventListener('click', (e) => {
+            // Buttons that open modals or perform simple actions
+            if (e.target.closest('#add-school-btn')) openSchoolModal();
+            if (e.target.closest('#add-user-btn')) openUserModal();
+            if (e.target.closest('#add-student-btn')) showToast('Add Student feature is for admins only.', 'info');
+            if (e.target.closest('#bulk-upload-btn')) openBulkUploadModal();
+            if (e.target.closest('#add-tier-btn')) openTierModal();
+            if (e.target.closest('#add-award-type-btn')) openAwardTypeModal();
+
+            // Buttons within tables/lists that need a data-id
+            const editTierBtn = e.target.closest('.edit-tier-btn');
+            if (editTierBtn) openTierModal(editTierBtn.dataset.id);
+
+            const editAwardTypeBtn = e.target.closest('.edit-award-type-btn');
+            if (editAwardTypeBtn) openAwardTypeModal(editAwardTypeBtn.dataset.id);
+
+            const closeModalBtn = e.target.closest('.close-modal-btn');
+            if (closeModalBtn) closeModal(closeModalBtn.dataset.modalId);
+
+            const editSchoolBtn = e.target.closest('.edit-school-btn');
+            if (editSchoolBtn) openSchoolModal(editSchoolBtn.dataset.id);
+
+            const editUserBtn = e.target.closest('.edit-user-btn');
+            if (editUserBtn) openUserModal(editUserBtn.dataset.id);
+
+            const viewStudentBtn = e.target.closest('.view-student-btn');
+            if (viewStudentBtn) switchView('student-dashboard', viewStudentBtn.dataset.id);
+
+            const editIncidentBtn = e.target.closest('.edit-incident-btn');
+            if (editIncidentBtn) openEditIncidentModal(editIncidentBtn.dataset.id);
+
+            const awardBehaviorBtn = e.target.closest('.award-behavior-btn');
+            if (awardBehaviorBtn) openAwardBehaviorModal(awardBehaviorBtn.dataset.id);
+        });
+
+        document.getElementById('school-form').addEventListener('submit', handleSchoolFormSubmit);
+        document.getElementById('user-form').addEventListener('submit', handleUserFormSubmit);
+        document.getElementById('edit-incident-form').addEventListener('submit', handleEditIncidentFormSubmit);
+        document.getElementById('award-behavior-form').addEventListener('submit', handleAwardBehaviorFormSubmit);
+        document.getElementById('tier-form').addEventListener('submit', handleTierFormSubmit);
+        document.getElementById('award-type-form').addEventListener('submit', handleAwardTypeFormSubmit);
+        
+    }
+
+    function toggleSuperAdminLogin(e) {
+        e.preventDefault();
+        const isSuperAdminLogin = schoolCodeGroup.classList.contains('hidden');
+        if (isSuperAdminLogin) {
+            schoolCodeGroup.classList.remove('hidden');
+            schoolCodeInput.setAttribute('required', 'required');
+            superAdminToggle.textContent = 'Login as Super Administrator';
+        } else {
+            schoolCodeGroup.classList.add('hidden');
+            schoolCodeInput.removeAttribute('required');
+            superAdminToggle.textContent = 'Login as Staff/Admin';
+        }
+        loginForm.reset();
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const schoolCode = document.getElementById('school-code').value;
+        const isSuperAdminLogin = schoolCodeGroup.classList.contains('hidden');
+        const loginError = document.getElementById('login-error');
+        loginError.textContent = '';
+        
+        let user = null;
+        if (isSuperAdminLogin) {
+            user = localData.users.find(u => u.email === email && u.role === 'super-admin');
+        } else {
+            user = localData.users.find(u => u.email === email && localData.schools.find(s => s.code.toLowerCase() === schoolCode.toLowerCase() && s.id === u.schoolId));
+        }
+
+        if (user && user.password === password) {
+            currentUser = { ...user };
+            initializeAppForUser();
+        } else {
+            loginError.textContent = 'Login failed. Please check your credentials.';
+        }
+    }
+
+    function handleLogout() {
+        currentUser = null;
+        loginScreen.classList.remove('hidden');
+        appContainer.classList.add('hidden');
+        loginForm.reset();
+    }
+
+    async function initializeAppForUser() {
+        loginScreen.classList.add('hidden');
+        appContainer.classList.remove('hidden');
+        
+        document.querySelectorAll('.admin-only, .super-admin-only, .teacher-only, .admin-plus-only').forEach(el => el.classList.add('hidden'));
+
+        // Handle button visibility based on role
+        const downloadBtn = document.getElementById('download-report-btn');
+        if (currentUser.role === 'teacher') {
+            downloadBtn.classList.add('hidden');
+        } else {
+            downloadBtn.classList.remove('hidden');
+        }
+        
+        if (currentUser.role === 'super-admin') {
+            document.querySelectorAll('.admin-only, .super-admin-only, .teacher-only, .admin-plus-only').forEach(el => el.classList.remove('hidden'));
+            fetchAndPopulateSchoolsForSelector();
+            schoolSelectorGroup.classList.remove('hidden');
+            currentSchoolId = null;
+        } else if (currentUser.role === 'admin+') {
+             document.querySelectorAll('.admin-only, .teacher-only, .admin-plus-only').forEach(el => el.classList.remove('hidden'));
+             schoolSelectorGroup.classList.add('hidden');
+             currentSchoolId = currentUser.schoolId;
+        } else if (currentUser.role === 'admin') {
+            document.querySelectorAll('.admin-only, .teacher-only').forEach(el => el.classList.remove('hidden'));
+            schoolSelectorGroup.classList.add('hidden');
+            currentSchoolId = currentUser.schoolId;
+        } else if (currentUser.role === 'teacher') {
+            document.querySelectorAll('.teacher-only').forEach(el => el.classList.remove('hidden'));
+            schoolSelectorGroup.classList.add('hidden');
+            currentSchoolId = currentUser.schoolId;
+        }
+        
+        switchView(currentUser.role === 'teacher' ? 'log-incident' : 'dashboard');
+    }
+
+    function fetchAndPopulateSchoolsForSelector() {
+        schoolSelector.innerHTML = '<option value="">All Schools</option>';
+        localData.schools.forEach(school => {
+            const option = document.createElement('option');
+            option.value = school.id;
+            option.textContent = school.name;
+            schoolSelector.appendChild(option);
+        });
+    }
+
+    function handleSchoolFilterChange(e) {
+        currentSchoolId = e.target.value || null;
+        renderCurrentView();
+    }
+
+
+    // --- VIEW MANAGEMENT ---
+    function switchView(viewName, data = null) {
+        if (!viewTemplates[viewName]) {
+            console.error('View not found:', viewName);
+            return;
+        }
+        
+        if (viewName === 'student-dashboard') {
+            if (currentView !== 'student-dashboard') {
+                previousView = currentView;
+            }
+            currentStudentId = data;
+            backBtn.classList.remove('hidden');
+        } else {
+            backBtn.classList.add('hidden');
+            currentStudentId = null;
+        }
+
+        currentView = viewName;
+        
+        const viewTitleKeys = {
+            'dashboard': 'dashboard_title',
+            'all-incidents': 'nav_all_incidents',
+            'log-incident': 'nav_log_incident',
+            'students': 'nav_students',
+            'analytics': 'nav_analytics',
+            'confidential-report': 'nav_confidential_report',
+            'view-confidential-reports': 'nav_view_confidential',
+            'manage-schools': 'nav_manage_schools',
+            'manage-users': 'nav_manage_users',
+            'manage-tiers': 'nav_manage_tiers',
+            'manage-awards': 'nav_manage_awards',
+            'student-dashboard': 'student_dashboard_title'
+        };
+        viewTitle.dataset.langKey = viewTitleKeys[viewName] || 'dashboard_title';
+        
+        mainViewsContainer.innerHTML = viewTemplates[viewName];
+
+        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('bg-gray-700', 'text-white'));
+        const activeLink = document.querySelector(`.nav-link[data-view="${viewName}"]`);
+        if(activeLink) activeLink.classList.add('bg-gray-700', 'text-white');
+        
+        const schoolName = currentSchoolId ? localData.schools.find(s => s.id === currentSchoolId)?.name : 'All Schools';
+        schoolContextHeader.textContent = `User: ${currentUser.name} | Role: ${currentUser.role} | School: ${schoolName}`;
+
+        if (viewName === 'log-incident') setupLogIncidentForm();
+        else if (viewName === 'confidential-report') setupConfidentialReportForm();
+        else if (viewName === 'manage-tiers') setupManageTiersView();
+        else if (viewName === 'students') document.getElementById('bulk-upload-form').addEventListener('submit', handleBulkUploadFormSubmit);
+
+        renderCurrentView();
+        applyTranslation(document.documentElement.lang || 'en');
+        
+        const printBtn = document.getElementById('print-report-btn');
+        if (['dashboard', 'student-dashboard', 'analytics'].includes(viewName)) {
+            printBtn.classList.remove('hidden');
+        } else {
+            printBtn.classList.add('hidden');
+        }
+    }
+
+    function setupLogIncidentForm() {
+        const form = document.getElementById('log-incident-form');
+        if (!form) return;
+        form.addEventListener('submit', handleLogIncidentFormSubmit);
+        document.getElementById('teacher-name').value = currentUser.name;
+        renderStudentListDatalist();
+        
+        const incidentTierSelect = document.getElementById('incident-tier');
+        incidentTierSelect.innerHTML = `<option value="" disabled selected>Select a Tier</option>`;
+        const schoolTiers = localData.tiers.filter(t => t.schoolId === currentUser.schoolId);
+        schoolTiers.sort((a,b) => a.tierNumber - b.tierNumber).forEach(tier => {
+            incidentTierSelect.innerHTML += `<option value="${tier.tierNumber}">Tier ${tier.tierNumber}</option>`;
+        });
+
+        document.getElementById('student-name').addEventListener('input', autoFillStudentDetails);
+        incidentTierSelect.addEventListener('change', updateTierDescription);
+        updateTierDescription();
+    }
+    
+    function autoFillStudentDetails() {
+        const studentName = document.getElementById('student-name').value;
+        const student = localData.students.find(s => s.name.toLowerCase() === studentName.toLowerCase() && s.schoolId === currentUser.schoolId);
+        if (student) {
+            document.getElementById('student-grade').value = student.grade;
+            document.getElementById('student-gender').value = student.gender;
+            document.getElementById('student-nationality').value = student.nationality;
+        }
+    }
+
+    function updateTierDescription() {
+        const incidentTierSelect = document.getElementById('incident-tier');
+        const tierDescriptionDiv = document.getElementById('tier-description');
+        const tierNumber = incidentTierSelect.value;
+        const tier = localData.tiers.find(t => t.schoolId === currentUser.schoolId && t.tierNumber == tierNumber);
+        tierDescriptionDiv.textContent = tier ? tier.description : 'Select a tier to see a description.';
+    }
+
+    function setupConfidentialReportForm() {
+        const form = document.getElementById('confidential-report-form');
+        if (form) form.addEventListener('submit', handleConfidentialReportFormSubmit);
+    }
+    
+    function setupManageTiersView(){
+        const schoolSelectorEl = document.getElementById('tier-school-selector');
+        schoolSelectorEl.innerHTML = localData.schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        schoolSelectorEl.addEventListener('change', () => renderTiersForSchool(schoolSelectorEl.value));
+        renderTiersForSchool(schoolSelectorEl.value);
+    }
+    
+    // --- DATA RENDERING ---
+    function renderCurrentView() {
+        const views = {
+            'dashboard': renderDashboard,
+            'all-incidents': renderAllIncidents,
+            'students': renderStudents,
+            'analytics': renderAnalytics,
+            'manage-schools': renderSchools,
+            'manage-users': renderUsers,
+            'view-confidential-reports': renderConfidentialReports,
+            'student-dashboard': renderStudentDashboard,
+            'manage-tiers': () => setupManageTiersView(),
+            'manage-awards': renderAwardTypes
+        };
+        if(views[currentView]) views[currentView]();
+    }
+    
+    function renderDashboard() {
+        const incidentsToDisplay = localData.incidents.filter(i => !currentSchoolId || i.schoolId === currentSchoolId);
+        const studentsToDisplay = localData.students.filter(s => !currentSchoolId || s.schoolId === currentSchoolId);
+        const positiveActionsToDisplay = localData.positiveActions.filter(pa => !currentSchoolId || pa.schoolId === currentSchoolId);
+        const confidentialReportsToDisplay = localData.confidentialReports.filter(r => !currentSchoolId || r.schoolId === currentSchoolId);
+
+        let maleIncidents = 0, femaleIncidents = 0;
+        incidentsToDisplay.forEach(incident => {
+            const student = localData.students.find(s => s.id === incident.studentId);
+            if (student) {
+                if (student.gender === 'Male') maleIncidents++;
+                else if (student.gender === 'Female') femaleIncidents++;
+            }
+        });
+
+        const gradeCounts = incidentsToDisplay.reduce((acc, i) => { if(i.grade) acc[i.grade] = (acc[i.grade] || 0) + 1; return acc; }, {});
+        const classWithMostIncidents = Object.keys(gradeCounts).reduce((a, b) => gradeCounts[a] > gradeCounts[b] ? a : b, 'N/A');
+
+        const teacherReportCounts = incidentsToDisplay.reduce((acc, i) => { if(i.reportedBy) acc[i.reportedBy] = (acc[i.reportedBy] || 0) + 1; return acc; }, {});
+        const topTeacher = Object.keys(teacherReportCounts).reduce((a, b) => {
+            if (!teacherReportCounts[a]) return b;
+            if (!teacherReportCounts[b]) return a;
+            if (teacherReportCounts[a] > teacherReportCounts[b]) return a;
+            return b;
+        }, 'N/A');
+
+        const statContainer = document.getElementById('stat-cards-container');
+        if (!statContainer) return;
+        statContainer.innerHTML = `
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-purple-100 rounded-full"><i class="fas fa-bars-staggered fa-2x text-purple-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="total_incidents">Total Incidents</h3><p class="text-3xl font-semibold text-gray-800">${incidentsToDisplay.length}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-blue-100 rounded-full"><i class="fas fa-user-graduate fa-2x text-blue-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="total_students">Total Students</h3><p class="text-3xl font-semibold text-gray-800">${studentsToDisplay.length}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-green-100 rounded-full"><i class="fas fa-award fa-2x text-green-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="positive_actions">Positive Actions</h3><p class="text-3xl font-semibold text-gray-800">${positiveActionsToDisplay.length}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-yellow-100 rounded-full"><i class="fas fa-file-shield fa-2x text-yellow-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="confidential_reports">Confidential Reports</h3><p class="text-3xl font-semibold text-gray-800">${confidentialReportsToDisplay.length}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-blue-100 rounded-full"><i class="fas fa-mars fa-2x text-blue-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="male_incidents">Male Incidents</h3><p class="text-3xl font-semibold text-gray-800">${maleIncidents}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-pink-100 rounded-full"><i class="fas fa-venus fa-2x text-pink-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="female_incidents">Female Incidents</h3><p class="text-3xl font-semibold text-gray-800">${femaleIncidents}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-red-100 rounded-full"><i class="fas fa-school fa-2x text-red-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="highest_incidents_class">Highest Incidents (Class)</h3><p class="text-2xl font-semibold text-gray-800">${classWithMostIncidents}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-indigo-100 rounded-full"><i class="fas fa-user-pen fa-2x text-indigo-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="top_reporting_teacher">Top Reporting Teacher</h3><p class="text-lg font-semibold text-gray-800">${topTeacher}</p></div></div>`;
+        
+        renderDashboardCharts(incidentsToDisplay, positiveActionsToDisplay);
+        renderRecentIncidents(incidentsToDisplay);
+        renderStudentSpotlight(incidentsToDisplay, positiveActionsToDisplay);
+    }
+
+    function renderDashboardCharts(incidents, positiveActions) {
+        const tierCtx = document.getElementById('tier-chart');
+        const statusCtx = document.getElementById('status-chart');
+        const awardsCtx = document.getElementById('awards-chart');
+        if (!tierCtx || !statusCtx || !awardsCtx) return;
+
+        if (tierChart) tierChart.destroy();
+        if (statusChart) statusChart.destroy();
+        if (awardsChart) awardsChart.destroy();
+
+        const tierCounts = incidents.reduce((acc, i) => { acc[i.tier] = (acc[i.tier] || 0) + 1; return acc; }, {});
+        const schoolTiers = localData.tiers.filter(t => !currentSchoolId || t.schoolId === currentSchoolId).sort((a,b) => a.tierNumber - b.tierNumber);
+        
+        tierChart = new Chart(tierCtx, {
+            type: 'pie',
+            data: {
+                labels: schoolTiers.map(t => `Tier ${t.tierNumber}`),
+                datasets: [{ data: schoolTiers.map(t => tierCounts[t.tierNumber] || 0), backgroundColor: schoolTiers.map(t => t.color) }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        const statusCounts = incidents.reduce((acc, i) => { acc[i.status] = (acc[i.status] || 0) + 1; return acc; }, {});
+        statusChart = new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(statusCounts),
+                datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#f97316', '#10b981', '#3b82f6', '#fcd34d', '#dc2626', '#1d4ed8'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+        
+        const awardsByType = positiveActions.reduce((acc, action) => {
+            acc[action.behavior] = (acc[action.behavior] || 0) + 1;
+            return acc;
+        }, {});
+        awardsChart = new Chart(awardsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(awardsByType),
+                datasets: [{
+                    data: Object.values(awardsByType),
+                    backgroundColor: Object.keys(awardsByType).map(name => localData.positiveBehaviors.find(b => b.name === name)?.color || '#cccccc')
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+    
+    function renderAnalytics() {
+        const incidents = localData.incidents.filter(i => !currentSchoolId || i.schoolId === currentSchoolId);
+        
+        const timeCtx = document.getElementById('incidents-over-time-chart');
+        if (timeChart) timeChart.destroy();
+        const dates = [...new Set(incidents.map(i => new Date(i.datetime).toISOString().split('T')[0]))].sort();
+        const incidentCountsByDate = dates.map(date => incidents.filter(i => i.datetime.startsWith(date)).length);
+        timeChart = new Chart(timeCtx, { type: 'line', data: { labels: dates, datasets: [{ label: 'Incidents per Day', data: incidentCountsByDate, borderColor: '#4f46e5', backgroundColor: '#eef2ff', fill: true }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
+
+        const locationCtx = document.getElementById('incidents-by-location-chart');
+        if (locationChart) locationChart.destroy();
+        const locations = incidents.map(i => i.location);
+        const locationCounts = locations.reduce((acc, loc) => { acc[loc] = (acc[loc] || 0) + 1; return acc; }, {});
+        locationChart = new Chart(locationCtx, { type: 'bar', data: { labels: Object.keys(locationCounts), datasets: [{ label: 'Number of Incidents', data: Object.values(locationCounts), backgroundColor: '#6366f1' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
+        
+        const gradeCtx = document.getElementById('incidents-by-grade-chart');
+        if (gradeChart) gradeChart.destroy();
+        const gradeCounts = incidents.reduce((acc, i) => { if (i.grade) acc[i.grade] = (acc[i.grade] || 0) + 1; return acc; }, {});
+        gradeChart = new Chart(gradeCtx, { 
+            type: 'bar', 
+            data: { 
+                labels: Object.keys(gradeCounts), 
+                datasets: [{ 
+                    label: 'Number of Incidents',
+                    data: Object.values(gradeCounts), 
+                    backgroundColor: '#3b82f6' 
+                }] 
+            }, 
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } } 
+            } 
+        });
+
+        const totalDays = 30;
+        const incidentsLast30Days = incidents.filter(i => new Date(i.datetime) > new Date(Date.now() - totalDays * 24 * 60 * 60 * 1000));
+        document.getElementById('avg-incidents-per-day').textContent = (incidentsLast30Days.length / totalDays).toFixed(1);
+        document.getElementById('most-common-location').textContent = Object.entries(locationCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || '-';
+
+        const timeOfDayCounts = { Morning: 0, 'Mid-Day': 0, Afternoon: 0 };
+        incidents.forEach(incident => {
+            const hour = new Date(incident.datetime).getHours();
+            if (hour >= 8 && hour < 11) timeOfDayCounts.Morning++;
+            else if (hour >= 11 && hour < 13) timeOfDayCounts['Mid-Day']++;
+            else if (hour >= 13 && hour < 16) timeOfDayCounts.Afternoon++;
+        });
+        
+        const timeRanges = {
+            Morning: '(8am - 11am)',
+            'Mid-Day': '(11am - 1pm)',
+            Afternoon: '(1pm - 4pm)'
+        };
+
+        let peakTime = '-';
+        let peakTimeRange = '';
+        if (Object.values(timeOfDayCounts).some(v => v > 0)) {
+            peakTime = Object.keys(timeOfDayCounts).reduce((a, b) => timeOfDayCounts[a] > timeOfDayCounts[b] ? a : b);
+            peakTimeRange = timeRanges[peakTime] || '';
+        }
+        document.getElementById('peak-incident-time').textContent = peakTime;
+        document.getElementById('peak-incident-time-range').textContent = peakTimeRange;
+    }
+
+    function renderRecentIncidents(incidents) {
+        const tableBody = document.getElementById('recent-incidents-table');
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+        incidents.sort((a, b) => new Date(b.datetime) - new Date(a.datetime)).slice(0, 5).forEach(incident => {
+            const tierInfo = localData.tiers.find(t => t.tierNumber === incident.tier && t.schoolId === incident.schoolId) || { color: '#cccccc' };
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b hover:bg-gray-50';
+            row.innerHTML = `
+                <td class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap">${incident.studentName}</td>
+                <td class="py-4 px-6"><span class="h-2 w-2 rounded-full inline-block mr-2" style="background-color: ${tierInfo.color};"></span>${incident.tier}</td>
+                <td class="py-4 px-6">${new Date(incident.datetime).toLocaleDateString()}</td>
+                <td class="py-4 px-6">${incident.status}</td>
+                <td class="py-4 px-6">
+                    <button class="view-student-btn text-indigo-600 hover:text-indigo-900 mr-2 rtl:ml-2 rtl:mr-0" data-id="${incident.studentId}" data-lang-key="view">View</button>
+                    <button class="edit-incident-btn text-blue-600 hover:text-blue-900" data-id="${incident.id}" data-lang-key="edit">Edit</button>
+                </td>`;
+        });
+    }
+
+    function renderStudentSpotlight(incidents, positiveActions) {
+        const container = document.getElementById('student-spotlight');
+        if (!container) return;
+        container.innerHTML = '';
+        const studentIncidentCounts = incidents.reduce((acc, i) => { acc[i.studentId] = (acc[i.studentId] || 0) + 1; return acc; }, {});
+        const studentPositiveActionCounts = positiveActions.reduce((acc, pa) => { acc[pa.studentId] = (acc[pa.studentId] || 0) + 1; return acc; }, {});
+        const studentData = localData.students.filter(s => studentIncidentCounts[s.id] || studentPositiveActionCounts[s.id]);
+        studentData.forEach(s => { s.incidentCount = studentIncidentCounts[s.id] || 0; s.positiveCount = studentPositiveActionCounts[s.id] || 0; });
+        studentData.sort((a, b) => b.incidentCount - a.incidentCount || b.positiveCount - a.positiveCount).slice(0, 5).forEach(student => {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-50 p-3 rounded-lg flex items-center justify-between cursor-pointer hover:bg-gray-100 transition duration-150 view-student-btn';
+            card.dataset.id = student.id;
+            card.innerHTML = `<div class="flex items-center"><i class="fas fa-user-circle text-gray-400 fa-2x rtl:ml-3"></i><div class="ml-3 rtl:mr-3"><p class="font-medium text-gray-800">${student.name}</p><p class="text-xs text-gray-500" data-lang-key-format='{"key": "incidents_positive", "params": ["${student.incidentCount}", "${student.positiveCount}"]}'>Incidents: ${student.incidentCount} | Positive: ${student.positiveCount}</p></div></div>`;
+            container.appendChild(card);
+        });
+    }
+
+    function renderAllIncidents() {
+        // Populate Grade Filter
+        const gradeFilter = document.getElementById('filter-grade');
+        if (gradeFilter) {
+            const grades = [...new Set(localData.students.filter(s => !currentSchoolId || s.schoolId === currentSchoolId).map(s => s.grade))].sort();
+            // Preserve the "All" option
+            gradeFilter.innerHTML = `<option value="" data-lang-key="all">${translations[document.documentElement.lang || 'en']['all'] || 'All'}</option>`;
+            grades.forEach(grade => {
+                gradeFilter.innerHTML += `<option value="${grade}">${grade}</option>`;
+            });
+        }
+
+        // Apply and Clear Filter Event Listeners
+        const applyBtn = document.getElementById('filter-apply-btn');
+        const clearBtn = document.getElementById('filter-clear-btn');
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => displayFilteredIncidents());
+        }
+        if(clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                document.getElementById('filter-search').value = '';
+                document.getElementById('filter-grade').value = '';
+                document.getElementById('filter-date').value = '';
+                displayFilteredIncidents();
+            });
+        }
+        
+        // Initial Display
+        displayFilteredIncidents();
+    }
+
+    function displayFilteredIncidents() {
+        const searchFilter = document.getElementById('filter-search').value.toLowerCase();
+        const gradeFilter = document.getElementById('filter-grade').value;
+        const dateFilter = document.getElementById('filter-date').value;
+
+        let incidentsToDisplay = localData.incidents.filter(i => !currentSchoolId || i.schoolId === currentSchoolId);
+
+        if (searchFilter) {
+            incidentsToDisplay = incidentsToDisplay.filter(i => 
+                i.studentName.toLowerCase().includes(searchFilter) ||
+                i.status.toLowerCase().includes(searchFilter)
+            );
+        }
+        if (gradeFilter) {
+            incidentsToDisplay = incidentsToDisplay.filter(i => i.grade === gradeFilter);
+        }
+        if (dateFilter) {
+            incidentsToDisplay = incidentsToDisplay.filter(i => {
+                const incidentDate = new Date(i.datetime).toISOString().split('T')[0];
+                return incidentDate === dateFilter;
+            });
+        }
+        const tableBody = document.getElementById('all-incidents-table');
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+        incidentsToDisplay.forEach(incident => {
+            const tierInfo = localData.tiers.find(t => t.tierNumber === incident.tier && t.schoolId === incident.schoolId) || { color: '#cccccc' };
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b hover:bg-gray-50';
+            row.innerHTML = `
+                <td class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap">${incident.studentName}</td>
+                <td class="py-4 px-6"><span class="h-2 w-2 rounded-full inline-block mr-2" style="background-color: ${tierInfo.color};"></span>${incident.tier}</td>
+                <td class="py-4 px-6">${new Date(incident.datetime).toLocaleDateString()}</td>
+                <td class="py-4 px-6">${incident.reportedBy}</td>
+                <td class="py-4 px-6">${incident.status}</td>
+                <td class="py-4 px-6">
+                    <button class="view-student-btn text-indigo-600 hover:text-indigo-900" data-id="${incident.studentId}" data-lang-key="view">View</button>
+                    <button class="edit-incident-btn text-blue-600 hover:text-blue-900 mx-2" data-id="${incident.id}" data-lang-key="edit">Edit</button>
+                </td>`;
+        });
+        applyTranslation(document.documentElement.lang || 'en');
+    }
+
+    function renderStudents() {
+        const students = localData.students.filter(s => !currentSchoolId || s.schoolId === currentSchoolId);
+        const tableBody = document.getElementById('students-table');
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+        students.forEach(student => {
+            const studentIncidents = [...localData.incidents.filter(i => i.studentId === student.id)].sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+            const totalIncidents = studentIncidents.length;
+            const highestTier = totalIncidents > 0 ? Math.max(...studentIncidents.map(i => i.tier)) : '-';
+            const totalPositiveActions = localData.positiveActions.filter(pa => pa.studentId === student.id).length;
+            
+            // Get latest incident details
+            let academicSummary = 'N/A';
+            let attitudeToLearning = 'N/A';
+            if (totalIncidents > 0) {
+                const latestIncident = studentIncidents[0]; // Already sorted by lastModified
+                academicSummary = latestIncident.academicSummary || 'N/A';
+                attitudeToLearning = latestIncident.attitudeToLearning && latestIncident.attitudeToLearning.length > 0 ? latestIncident.attitudeToLearning.join(', ') : 'N/A';
+            }
+
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b hover:bg-gray-50';
+            row.innerHTML = `
+                <td class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap">${student.name}</td>
+                <td class="py-4 px-6">${student.grade}</td>
+                <td class="py-4 px-6">${totalIncidents}</td>
+                <td class="py-4 px-6">${highestTier}</td>
+                <td class="py-4 px-6">${totalPositiveActions}</td>
+                <td class="py-4 px-6">${academicSummary}</td>
+                <td class="py-4 px-6">${attitudeToLearning}</td>
+                <td class="py-4 px-6"><button class="view-student-btn text-indigo-600 hover:text-indigo-900" data-id="${student.id}" data-lang-key="view">View</button></td>`;
+        });
+    }
+
+    function renderSchools() {
+        const tableBody = document.getElementById('schools-table');
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+        localData.schools.forEach(school => {
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b';
+            row.innerHTML = `
+                <td class="py-4 px-6">${school.name}</td>
+                <td class="py-4 px-6">${school.code}</td>
+                <td class="py-4 px-6">${school.adminCount}</td>
+                <td class="py-4 px-6"><button class="edit-school-btn text-indigo-600 hover:text-indigo-900" data-id="${school.id}" data-lang-key="edit">Edit</button></td>`;
+        });
+    }
+
+    function renderUsers() {
+        const users = currentUser.role === 'super-admin' ? localData.users : localData.users.filter(u => u.schoolId === currentUser.schoolId);
+        const tableBody = document.getElementById('users-table');
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+        users.forEach(user => {
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b';
+            row.innerHTML = `
+                <td class="py-4 px-6">${user.name}</td>
+                <td class="py-4 px-6">${user.email}</td>
+                <td class="py-4 px-6">${user.role}</td>
+                <td class="py-4 px-6"><button class="edit-user-btn text-indigo-600 hover:text-indigo-900" data-id="${user.id}" data-lang-key="edit">Edit</button></td>`;
+        });
+    }
+
+    function renderConfidentialReports() {
+        const reports = localData.confidentialReports.filter(r => !currentSchoolId || r.schoolId === currentSchoolId);
+        const tableBody = document.getElementById('confidential-reports-table');
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+        reports.forEach(report => {
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b';
+            row.innerHTML = `
+                <td class="py-4 px-6">${new Date(report.report_date).toLocaleDateString()}</td>
+                <td class="py-4 px-6">${report.subject}</td>
+                <td class="py-4 px-6">${report.description}</td>`;
+        });
+    }
+
+    function renderStudentListDatalist() {
+        const datalist = document.getElementById('student-list-datalist');
+        if (!datalist) return;
+        datalist.innerHTML = '';
+        localData.students.filter(s => s.schoolId === currentUser.schoolId).forEach(student => {
+            datalist.innerHTML += `<option value="${student.name}"></option>`;
+        });
+    }
+    
+    function renderTiersForSchool(schoolId) {
+        const tableBody = document.getElementById('tiers-table');
+        if(!tableBody) return;
+        tableBody.innerHTML = '';
+        localData.tiers.filter(t => t.schoolId === schoolId).sort((a,b) => a.tierNumber - b.tierNumber).forEach(tier => {
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b';
+            row.innerHTML = `
+                <td class="py-4 px-6"><span class="h-2 w-2 rounded-full inline-block mr-2" style="background-color: ${tier.color};"></span>${tier.tierNumber}</td>
+                <td class="py-4 px-6">${tier.description}</td>
+                <td class="py-4 px-6"><button class="edit-tier-btn text-indigo-600 hover:text-indigo-900" data-id="${tier.id}" data-lang-key="edit">Edit</button></td>`;
+        });
+    }
+
+    // --- FORM SUBMISSION HANDLERS ---
+    function handleLogIncidentFormSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const studentName = form['student-name'].value;
+        const studentGrade = form['student-grade'].value;
+        const studentGender = form['student-gender'].value;
+        const studentNationality = form['student-nationality'].value;
+
+        let student = localData.students.find(s => s.name.toLowerCase() === studentName.toLowerCase() && s.schoolId === currentUser.schoolId);
+        if (!student) {
+            student = { id: 'st' + (localData.students.length + 1), name: studentName, grade: studentGrade, gender: studentGender, nationality: studentNationality, schoolId: currentUser.schoolId };
+            localData.students.push(student);
+        }
+
+        const now = new Date().toISOString();
+        localData.incidents.push({
+            id: 'i' + (localData.incidents.length + 1),
+            studentId: student.id, studentName: student.name, grade: student.grade,
+            tier: parseInt(form['incident-tier'].value), location: form['incident-location'].value,
+            datetime: now, description: form['incident-description'].value,
+            remarks: form['incident-remarks'].value, reportedBy: form['teacher-name'].value,
+            status: 'Pending', schoolId: currentUser.schoolId,
+            academicSummary: 'Meeting Expectations', attitudeToLearning: [],
+            lastModified: now
+        });
+        
+        showToast('Incident logged successfully!');
+        form.reset();
+        document.getElementById('teacher-name').value = currentUser.name;
+        updateTierDescription();
+        renderCurrentView();
+    }
+
+    function handleConfidentialReportFormSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        localData.confidentialReports.push({
+            id: 'cr' + (localData.confidentialReports.length + 1),
+            subject: form['confidential-subject'].value, description: form['confidential-description'].value,
+            report_date: new Date().toISOString(), reportedBy: currentUser.name, schoolId: currentUser.schoolId
+        });
+        showToast('Confidential report submitted successfully!');
+        form.reset();
+        renderCurrentView();
+    }
+
+    function handleEditIncidentFormSubmit(e) {
+        e.preventDefault();
+        const incidentId = document.getElementById('edit-incident-id').value;
+        const incident = localData.incidents.find(i => i.id === incidentId);
+
+        if (incident) {
+            incident.status = document.getElementById('edit-incident-status').value;
+            incident.remarks = document.getElementById('edit-incident-remarks').value;
+            incident.academicSummary = document.getElementById('edit-academic-summary').value;
+            incident.attitudeToLearning = Array.from(document.querySelectorAll('#edit-attitude-checklist input:checked')).map(cb => cb.value);
+            incident.lastModified = new Date().toISOString(); // Update the last modified timestamp
+            showToast('Incident updated successfully!');
+            closeModal('edit-incident-modal');
+            renderCurrentView();
+        } else {
+            showToast('Error updating incident.', 'error');
+        }
+    }
+
+    function handleAwardBehaviorFormSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const studentId = form['award-student-id'].value;
+        const student = localData.students.find(s => s.id === studentId);
+        const behavior = localData.positiveBehaviors.find(b => b.name === form['behavior-type'].value);
+
+        if (student && behavior) {
+             localData.positiveActions.push({
+                id: 'pa' + (localData.positiveActions.length + 1),
+                studentId: student.id, studentName: student.name, behavior: behavior.name, points: behavior.points,
+                notes: form['award-notes'].value, reportedBy: currentUser.name, date: new Date().toISOString().split('T')[0], schoolId: currentUser.schoolId
+            });
+            showToast('Positive behavior awarded!');
+            closeModal('award-behavior-modal');
+            if(currentView === 'student-dashboard') renderStudentDashboard();
+            else renderCurrentView();
+        } else {
+            showToast('Failed to award behavior. Please try again.', 'error');
+        }
+    }
+
+    function handleBulkUploadFormSubmit(e) {
+        e.preventDefault();
+        const csvData = document.getElementById('student-csv-data').value.trim();
+        const rows = csvData.split('\n');
+        let studentsAdded = 0;
+        try {
+            rows.forEach((row, index) => {
+                if(!row) return;
+                const [name, grade, gender, nationality] = row.split(',').map(s => s.trim());
+                if (!name || !grade || !gender || !nationality) throw new Error(`Invalid data on row ${index + 1}`);
+                localData.students.push({ id: 'st' + (localData.students.length + 1), name, grade, gender, nationality, schoolId: currentUser.schoolId });
+                studentsAdded++;
+            });
+            showToast(`${studentsAdded} students uploaded successfully!`);
+            closeModal('bulk-upload-modal');
+            renderStudents();
+        } catch (error) {
+            showToast(`Error processing CSV: ${error.message}`, 'error');
+        }
+    }
+
+    function handleTierFormSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('tier-id').value;
+        const schoolId = document.getElementById('tier-school-id').value;
+        const tierNumber = parseInt(document.getElementById('tier-number').value);
+        const description = document.getElementById('tier-description-form').value;
+        const color = document.getElementById('tier-color').value;
+
+        if (id) {
+            const tier = localData.tiers.find(t => t.id === id);
+            if (tier) { tier.tierNumber = tierNumber; tier.description = description; tier.color = color; showToast('Tier updated successfully!'); }
+        } else {
+            localData.tiers.push({ id: 't' + (localData.tiers.length + 1), schoolId, tierNumber, description, color });
+            showToast('Tier added successfully!');
+        }
+        closeModal('tier-modal');
+        renderTiersForSchool(schoolId);
+    }
+    
+    function handleAwardTypeFormSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('award-type-id').value;
+        const name = document.getElementById('award-type-name').value;
+        const points = parseInt(document.getElementById('award-type-points').value);
+        const icon = document.getElementById('award-type-icon').value;
+        const color = document.getElementById('award-type-color').value;
+
+        if (id) {
+            const award = localData.positiveBehaviors.find(b => b.name === id);
+            if (award) {
+                // Update linked positive actions if name changes
+                if (award.name !== name) {
+                    localData.positiveActions.forEach(pa => {
+                        if (pa.behavior === award.name) {
+                            pa.behavior = name;
+                        }
+                    });
+                }
+                award.name = name;
+                award.points = points;
+                award.icon = icon;
+                award.color = color;
+                showToast('Award type updated successfully!');
+            }
+        } else {
+            localData.positiveBehaviors.push({ name, points, icon, color });
+            showToast('Award type added successfully!');
+        }
+        closeModal('award-type-modal');
+        renderAwardTypes();
+    }
+    
+    // --- MODAL HANDLING ---
+    function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+    function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
+    
+    function openSchoolModal(schoolId = null) {
+        const form = document.getElementById('school-form');
+        form.reset();
+        document.getElementById('school-id').value = '';
+        if (schoolId) {
+            const school = localData.schools.find(s => s.id == schoolId);
+            if (school) {
+                document.getElementById('school-modal-title').textContent = 'Edit School';
+                document.getElementById('school-id').value = school.id;
+                document.getElementById('school-name').value = school.name;
+                document.getElementById('school-form-code').value = school.code;
+            }
+        } else {
+            document.getElementById('school-modal-title').textContent = 'Add School';
+        }
+        openModal('school-modal');
+    }
+    
+    function handleSchoolFormSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('school-id').value;
+        if (id) {
+            const school = localData.schools.find(s => s.id === id);
+            if (school) { school.name = document.getElementById('school-name').value; school.code = document.getElementById('school-form-code').value; }
+            showToast('School updated successfully!');
+        } else {
+            localData.schools.push({ id: 's' + (localData.schools.length + 1), name: document.getElementById('school-name').value, code: document.getElementById('school-form-code').value, adminCount: 0 });
+            showToast('School added successfully!');
+        }
+        closeModal('school-modal');
+        renderCurrentView();
+        fetchAndPopulateSchoolsForSelector();
+    }
+    
+    function openUserModal(userId = null) {
+        const form = document.getElementById('user-form');
+        form.reset();
+        document.getElementById('user-id').value = '';
+        const passwordInput = document.getElementById('user-password');
+        const passwordHint = document.getElementById('password-hint');
+        const userRoleSelect = document.getElementById('user-role');
+        
+        userRoleSelect.innerHTML = `<option value="teacher">Teacher</option><option value="admin">Admin</option>`;
+        if (currentUser.role === 'super-admin') {
+            userRoleSelect.innerHTML += `<option value="admin+">Admin+</option>`;
+        }
+
+
+        if (userId) {
+            const user = localData.users.find(u => u.id == userId);
+            if (user) {
+                document.getElementById('user-modal-title').textContent = 'Edit User';
+                document.getElementById('user-id').value = user.id;
+                document.getElementById('user-name').value = user.name;
+                document.getElementById('user-email').value = user.email;
+                userRoleSelect.value = user.role;
+                passwordInput.removeAttribute('required');
+                passwordInput.placeholder = 'Leave blank to keep current password';
+                passwordHint.classList.remove('hidden');
+            }
+        } else {
+            document.getElementById('user-modal-title').textContent = 'Add User';
+            passwordInput.setAttribute('required', 'required');
+            passwordInput.placeholder = '';
+            passwordHint.classList.add('hidden');
+        }
+        openModal('user-modal');
+    }
+    
+    function handleUserFormSubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('user-id').value;
+        const name = document.getElementById('user-name').value;
+        const email = document.getElementById('user-email').value;
+        const password = document.getElementById('user-password').value;
+        const newUserRole = document.getElementById('user-role').value;
+        
+        if (id) {
+            const user = localData.users.find(u => u.id === id);
+            if (user) { user.name = name; user.email = email; user.role = newUserRole; if (password) user.password = password; }
+            showToast('User updated successfully!');
+        } else {
+            localData.users.push({ id: 'u' + (localData.users.length + 1), name, email, password, role: newUserRole, schoolId: currentUser.schoolId });
+            showToast('User added successfully!');
+        }
+        closeModal('user-modal');
+        renderCurrentView();
+    }
+
+    function openEditIncidentModal(incidentId) {
+        const incident = localData.incidents.find(i => i.id === incidentId);
+        if (incident) {
+            document.getElementById('edit-incident-id').value = incidentId;
+            document.getElementById('edit-incident-status').value = incident.status;
+            document.getElementById('edit-incident-remarks').value = incident.remarks || '';
+            document.getElementById('edit-academic-summary').value = incident.academicSummary || 'Meeting Expectations';
+            document.getElementById('modal-award-behavior-btn').dataset.id = incident.studentId;
+
+            const attitudeChecklist = document.getElementById('edit-attitude-checklist');
+            const attitudes = ['Attentive', 'Disruptive', 'Independent Learner', 'Team Member', 'Punctual', 'Misses Lessons', 'POD', 'G&T'];
+            attitudeChecklist.innerHTML = '';
+            attitudes.forEach(attitude => {
+                const isChecked = incident.attitudeToLearning?.includes(attitude) ? 'checked' : '';
+                attitudeChecklist.innerHTML += `<label class="flex items-center space-x-2"><input type="checkbox" class="rounded border-gray-300" value="${attitude}" ${isChecked}><span class="text-sm text-gray-700" data-lang-key="attitude_${attitude.toLowerCase().replace(/ /g, '_')}">${attitude}</span></label>`;
+            });
+            openModal('edit-incident-modal');
+        }
+    }
+
+    function openAwardBehaviorModal(studentId) {
+        const student = localData.students.find(s => s.id === studentId);
+        if (!student) { showToast('Student not found.', 'error'); return; }
+
+        document.getElementById('award-student-id').value = studentId;
+        document.getElementById('award-student-name').textContent = `Awarding: ${student.name}`;
+        document.getElementById('behavior-type').innerHTML = localData.positiveBehaviors.map(b => `<option value="${b.name}">${b.name} (${b.points} points)</option>`).join('');
+        openModal('award-behavior-modal');
+    }
+    
+    function openBulkUploadModal() {
+        document.getElementById('bulk-upload-form').reset();
+        openModal('bulk-upload-modal');
+    }
+
+    function openTierModal(tierId = null) {
+        const form = document.getElementById('tier-form');
+        form.reset();
+        document.getElementById('tier-id').value = '';
+        const schoolId = document.getElementById('tier-school-selector').value;
+        document.getElementById('tier-school-id').value = schoolId;
+
+        if (tierId) {
+            const tier = localData.tiers.find(t => t.id === tierId);
+            if (tier) {
+                document.getElementById('tier-modal-title').textContent = 'Edit Tier';
+                document.getElementById('tier-id').value = tier.id;
+                document.getElementById('tier-number').value = tier.tierNumber;
+                document.getElementById('tier-description-form').value = tier.description;
+                document.getElementById('tier-color').value = tier.color || '#6366f1';
+            }
+        } else {
+            document.getElementById('tier-modal-title').textContent = 'Add Tier';
+        }
+        openModal('tier-modal');
+    }
+
+    function openAwardTypeModal(awardName = null) {
+        const form = document.getElementById('award-type-form');
+        form.reset();
+        document.getElementById('award-type-id').value = '';
+        if (awardName) {
+            const award = localData.positiveBehaviors.find(b => b.name === awardName);
+            if (award) {
+                document.getElementById('award-type-modal-title').textContent = 'Edit Award Type';
+                document.getElementById('award-type-id').value = award.name;
+                document.getElementById('award-type-name').value = award.name;
+                document.getElementById('award-type-points').value = award.points;
+                document.getElementById('award-type-icon').value = award.icon;
+                document.getElementById('award-type-color').value = award.color;
+            }
+        } else {
+            document.getElementById('award-type-modal-title').textContent = 'Add Award Type';
+        }
+        openModal('award-type-modal');
+    }
+
+    function renderAwardTypes() {
+        const tableBody = document.getElementById('award-types-table');
+        if (!tableBody) return;
+        tableBody.innerHTML = '';
+        localData.positiveBehaviors.forEach(award => {
+            const row = tableBody.insertRow();
+            row.className = 'bg-white border-b';
+            row.innerHTML = `
+                <td class="py-4 px-6">${award.name}</td>
+                <td class="py-4 px-6">${award.points}</td>
+                <td class="py-4 px-6"><i class="${award.icon} fa-fw" style="color:${award.color}"></i> (${award.icon})</td>
+                <td class="py-4 px-6"><button class="edit-award-type-btn text-indigo-600 hover:text-indigo-900" data-id="${award.name}" data-lang-key="edit">Edit</button></td>`;
+        });
+    }
+
+    function renderStudentDashboard() {
+        if (!currentStudentId) return;
+        const student = localData.students.find(s => s.id === currentStudentId);
+        if (!student) {
+            mainViewsContainer.innerHTML = '<p>Student not found.</p>';
+            return;
+        }
+
+        document.getElementById('student-dashboard-name').textContent = student.name;
+        document.getElementById('student-dashboard-details').textContent = `Grade: ${student.grade} | Gender: ${student.gender || 'N/A'} | Nationality: ${student.nationality || 'N/A'}`;
+
+        const studentIncidents = localData.incidents.filter(i => i.studentId === student.id);
+        const totalIncidents = studentIncidents.length;
+        const highestTier = totalIncidents > 0 ? Math.max(...studentIncidents.map(i => i.tier)) : '-';
+        const studentPositiveActions = localData.positiveActions.filter(pa => pa.studentId === student.id);
+        const totalPositivePoints = studentPositiveActions.reduce((sum, action) => sum + action.points, 0);
+
+        // Get latest incident details for the snapshot
+        let academicSummary = 'N/A';
+        let attitudeToLearning = 'N/A';
+        if (totalIncidents > 0) {
+            const latestIncident = [...studentIncidents].sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified))[0];
+            academicSummary = latestIncident.academicSummary || 'N/A';
+            attitudeToLearning = latestIncident.attitudeToLearning && latestIncident.attitudeToLearning.length > 0 ? latestIncident.attitudeToLearning.join(', ') : 'N/A';
+        }
+        document.getElementById('student-dashboard-academic').textContent = academicSummary;
+        document.getElementById('student-dashboard-attitude').textContent = attitudeToLearning;
+
+        document.getElementById('student-kpi-cards').innerHTML = `
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-purple-100 rounded-full"><i class="fas fa-exclamation-triangle fa-2x text-purple-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="total_incidents">Total Incidents</h3><p class="text-3xl font-semibold text-gray-800">${totalIncidents}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-red-100 rounded-full"><i class="fas fa-arrow-up-9-1 fa-2x text-red-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="highest_tier">Highest Tier</h3><p class="text-3xl font-semibold text-gray-800">${highestTier}</p></div></div>
+            <div class="kpi-card p-5 rounded-lg flex items-center"><div class="p-4 bg-green-100 rounded-full"><i class="fas fa-star fa-2x text-green-600"></i></div><div class="ml-4 rtl:mr-4"><h3 class="text-sm font-medium text-gray-500" data-lang-key="total_award_points">Total Award Points</h3><p class="text-3xl font-semibold text-gray-800">${totalPositivePoints}</p></div></div>`;
+
+
+        const incidentsListContainer = document.getElementById('student-incidents-list');
+        incidentsListContainer.innerHTML = studentIncidents.length > 0 ? `<ul class="space-y-3">${studentIncidents.sort((a,b) => new Date(b.datetime) - new Date(a.datetime)).map(i => `<li class="p-3 bg-gray-50 rounded-lg border">
+            <p class="font-medium">Tier ${i.tier}: ${i.description}</p>
+            <p class="text-sm text-gray-600 mt-1"><span><i class="fas fa-calendar-alt mr-1 rtl:ml-1 rtl:mr-0"></i>${new Date(i.datetime).toLocaleString()}</span><span class="mx-2">|</span><span><i class="fas fa-map-marker-alt mr-1 rtl:ml-1 rtl:mr-0"></i>${i.location}</span></p>
+            <p class="text-sm text-gray-800 font-semibold mt-1">Status: ${i.status}</p>
+            ${i.academicSummary ? `<p class="text-xs text-gray-500 mt-1">Academic Summary: ${i.academicSummary}</p>` : ''}
+            ${i.attitudeToLearning && i.attitudeToLearning.length > 0 ? `<p class="text-xs text-gray-500 mt-1">Attitude: ${i.attitudeToLearning.join(', ')}</p>` : ''}
+            ${i.remarks ? `<p class="text-xs text-gray-500 mt-1 italic">Remarks: ${i.remarks}</p>` : ''}
+            </li>`).join('')}</ul>` : '<p class="text-gray-500" data-lang-key="no_incidents_record">No incidents on record.</p>';
+        
+        function hexToRgba(hex, alpha = 1) {
+            const [r, g, b] = hex.match(/\w\w/g).map(x => parseInt(x, 16));
+            return `rgba(${r},${g},${b},${alpha})`;
+        };
+        
+        const positiveActionsLog = document.getElementById('student-positive-actions-list');
+        if (positiveActionsLog) {
+            positiveActionsLog.innerHTML = studentPositiveActions.length > 0 ? `<div class="flex flex-wrap gap-3">${studentPositiveActions.sort((a,b) => new Date(b.date) - new Date(a.date)).map(pa => {
+                const awardInfo = localData.positiveBehaviors.find(b => b.name === pa.behavior) || { icon: 'fas fa-star', color: '#808080' };
+                const style = `background-color: ${hexToRgba(awardInfo.color, 0.1)}; border-color: ${hexToRgba(awardInfo.color, 0.3)}; color: ${awardInfo.color};`;
+                return `<div class="p-3 rounded-lg border flex-grow flex flex-col items-center shadow-sm text-center" style="${style}">
+                    <i class="${awardInfo.icon} fa-2x mb-2"></i>
+                    <p class="font-bold text-sm" style="color: #1f2937;">${pa.behavior}</p>
+                    <p class="text-xs font-semibold" style="color: #4b5563;">(+${pa.points} points)</p>
+                    <p class="text-xs text-gray-600 mt-1">${new Date(pa.date).toLocaleDateString()}</p>
+                    ${pa.notes ? `<p class="text-xs italic mt-1" style="color: #4b5563;">"${pa.notes}"</p>` : ''}
+                </div>`;
+            }).join('')}</div>` : '<p class="text-gray-500" data-lang-key="no_positive_actions_record">No positive actions on record.</p>';
+        }
+
+        const tierCtx = document.getElementById('student-tier-chart');
+        if(studentTierChart) studentTierChart.destroy();
+        const tierCounts = studentIncidents.reduce((acc, i) => { acc[i.tier] = (acc[i.tier] || 0) + 1; return acc; }, {});
+        const schoolTiers = localData.tiers.filter(t => !currentSchoolId || t.schoolId === student.schoolId).sort((a,b) => a.tierNumber - b.tierNumber);
+        studentTierChart = new Chart(tierCtx, {
+            type: 'doughnut',
+            data: {
+                labels: schoolTiers.map(t => `Tier ${t.tierNumber}`),
+                datasets: [{
+                    data: schoolTiers.map(t => tierCounts[t.tierNumber] || 0),
+                    backgroundColor: schoolTiers.map(t => t.color)
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+        });
+    }
+
+    
+    // --- UTILITY & TRANSLATION ---
+    
+    function createAnimatedBackground() {
+        const wrapper = document.getElementById('animation-wrapper');
+        if (!wrapper) return;
+        
+        const icons = [
+            'fa-user-graduate', 'fa-chalkboard-teacher', 'fa-lightbulb', 
+            'fa-chart-pie', 'fa-hands-helping', 'fa-award', 'fa-book-open', 
+            'fa-brain', 'fa-user-friends', 'fa-clipboard-check'
+        ];
+        const colors = [
+            'text-indigo-300', 'text-blue-300', 'text-green-300', 
+            'text-yellow-300', 'text-purple-300', 'text-pink-300'
+        ];
+        
+        const bubbleCount = 30;
+        
+        for (let i = 0; i < bubbleCount; i++) {
+            const bubble = document.createElement('div');
+            const icon = document.createElement('i');
+            const size = Math.random() * 100 + 20; // 20px to 120px
+            
+            icon.className = `fas ${icons[Math.floor(Math.random() * icons.length)]} ${colors[Math.floor(Math.random() * colors.length)]}`;
+            icon.style.fontSize = `${size / 2}px`;
+            
+            bubble.classList.add('bubble');
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+            bubble.style.left = `${Math.random() * 100}%`;
+            bubble.style.animationDuration = `${Math.random() * 15 + 15}s`; // 15s to 30s
+            bubble.style.animationDelay = `${Math.random() * 10}s`;
+            bubble.style.opacity = Math.random() * 0.5 + 0.1; // 0.1 to 0.6
+            
+            bubble.appendChild(icon);
+            wrapper.appendChild(bubble);
+        }
+    }
+
+    function downloadExcelReport() {
+        const incidentsToDisplay = localData.incidents.filter(i => !currentSchoolId || i.schoolId === currentSchoolId);
+        if (incidentsToDisplay.length === 0) {
+            showToast('No incidents to report.', 'info');
+            return;
+        }
+
+        const headers = ['ID', 'Student Name', 'Grade', 'Tier', 'Location', 'Date', 'Time', 'Description', 'Remarks', 'Reported By', 'Status', 'Academic Summary', 'Attitude to Learning'];
+        
+        const escapeCSV = (str) => {
+            if (str === null || str === undefined) return '""';
+            const s = String(str);
+            if (s.includes('"') || s.includes(',')) {
+                return `"${s.replace(/"/g, '""')}"`;
+            }
+            return s;
+        };
+
+        const rows = incidentsToDisplay.map(incident => {
+            const datetime = new Date(incident.datetime);
+            const date = datetime.toLocaleDateString();
+            const time = datetime.toLocaleTimeString();
+            const attitude = incident.attitudeToLearning ? incident.attitudeToLearning.join('; ') : '';
+
+            return [
+                incident.id, incident.studentName, incident.grade, incident.tier, incident.location,
+                date, time, escapeCSV(incident.description), escapeCSV(incident.remarks),
+                incident.reportedBy, incident.status, incident.academicSummary, escapeCSV(attitude)
+            ].join(',');
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "incidents_report.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('toast-notification');
+        toast.textContent = message;
+        toast.className = 'fixed top-5 right-5 rtl:left-5 rtl:right-auto text-white py-2 px-4 rounded-lg shadow-lg transform transition-transform duration-300 z-[60]';
+        toast.classList.add(type === 'error' ? 'bg-red-500' : 'bg-green-500');
+        
+        setTimeout(() => toast.style.transform = 'translateX(0)', 10);
+        setTimeout(() => toast.style.transform = document.dir === 'rtl' ? 'translateX(-120%)' : 'translateX(120%)', 3000);
+    }
+    
+    const translations = {
+        en: {
+            "incidents_positive": "Incidents: {0} | Positive: {1}",
+            "student_dashboard_title": "Student Dashboard",
+            "latest_behavioral_snapshot": "Latest Behavioral Snapshot",
+            "latest_incident_note": "From most recent incident record."
+        },
+        ar: {
+            "student_dashboard_title": "لوحة تحكم الطالب",
+            "latest_behavioral_snapshot": "أحدث لمحة سلوكية",
+            "latest_incident_note": "من أحدث سجل حادثة.",
+            "print_report_btn": "طباعة",
+            "download_report_btn": "تحميل",
+            "nav_dashboard": "لوحة التحكم",
+            "nav_all_incidents": "جميع الحوادث",
+            "nav_log_incident": "تسجيل حادثة",
+            "nav_students": "الطلاب",
+            "nav_analytics": "التحليلات",
+            "nav_confidential_report": "تقرير سري",
+            "nav_view_confidential": "عرض التقارير السرية",
+            "nav_manage_schools": "إدارة المدارس",
+            "nav_manage_users": "إدارة المستخدمين",
+            "nav_manage_tiers": "إدارة المستويات",
+            "nav_manage_awards": "إدارة الجوائز",
+            "nav_logout": "تسجيل الخروج",
+            "dashboard_title": "لوحة التحكم",
+            "all_schools": "جميع المدارس",
+            "back_btn": "رجوع",
+            "total_incidents": "مجموع الحوادث",
+            "total_students": "مجموع الطلاب",
+            "positive_actions": "الإجراءات الإيجابية",
+            "confidential_reports": "تقارير سرية",
+            "male_incidents": "حوادث الذكور",
+            "female_incidents": "حوادث الإناث",
+            "highest_incidents_class": "الصف الأكثر حوادث",
+            "top_reporting_teacher": "المعلم الأكثر تسجيلاً",
+            "incidents_by_tier": "الحوادث حسب المستوى",
+            "incidents_by_status": "الحوادث حسب الحالة",
+            "recent_incidents": "الحوادث الأخيرة",
+            "student_spotlight": "أضواء على الطلاب",
+            "student": "الطالب",
+            "tier": "المستوى",
+            "date": "التاريخ",
+            "status": "الحالة",
+            "actions": "الإجراءات",
+            "view": "عرض",
+            "edit": "تعديل",
+            "incidents_positive": "الحوادث: {0} | الإيجابيات: {1}",
+            "student_name": "اسم الطالب",
+            "gender": "الجنس",
+            "male": "ذكر",
+            "female": "أنثى",
+            "nationality": "الجنسية",
+            "student_grade_class": "صف الطالب",
+            "incident_tier": "مستوى الحادثة",
+            "select_tier": "اختر مستوى",
+            "location": "الموقع",
+            "date_time": "التاريخ والوقت",
+            "description": "الوصف",
+            "remarks": "ملاحظات",
+            "reported_by": "تم التسجيل بواسطة",
+            "submit_incident": "إرسال الحادثة",
+            "student_records": "سجلات الطلاب",
+            "bulk_upload": "رفع جماعي",
+            "add_student": "إضافة طالب",
+            "name": "الاسم",
+            "grade": "الصف",
+            "highest_tier": "أعلى مستوى",
+            "behavior_analytics": "تحليلات السلوك",
+            "avg_incidents_day": "متوسط الحوادث/يوم",
+            "most_common_location": "الموقع الأكثر شيوعًا",
+            "peak_incident_time": "وقت الذروة للحوادث",
+            "incidents_over_time": "الحوادث مع مرور الوقت",
+            "incidents_by_location": "الحوادث حسب الموقع",
+            "incidents_by_grade": "الحوادث حسب الصف",
+            "confidential_report_desc": "استخدم هذا النموذج للإبلاغ عن الحوادث الحساسة بسرية. ستبقى هويتك سرية.",
+            "subject": "الموضوع",
+            "submit_report": "إرسال التقرير",
+            "confidential_view_desc": "يعرض هذا العرض التقارير الحساسة التي لا يمكن الوصول إليها إلا للمسؤولين.",
+            "code": "الرمز",
+            "admins": "المسؤولون",
+            "email": "البريد الإلكتروني",
+            "password": "كلمة المرور",
+            "role": "الدور",
+            "teacher": "معلم",
+            "admin": "مسؤول",
+            "select_school": "اختر مدرسة:",
+            "add_tier": "إضافة مستوى",
+            "tier_number": "رقم المستوى",
+            "save_tier": "حفظ المستوى",
+            "incidents_log": "سجل الحوادث",
+            "awards_by_type": "الجوائز حسب النوع",
+            "positive_actions_log": "الجوائز والشارات",
+            "total_award_points": "مجموع نقاط الجوائز",
+            "no_incidents_record": "لا توجد حوادث مسجلة.",
+            "no_positive_actions_record": "لا توجد إجراءات إيجابية مسجلة.",
+             "add_school": "إضافة مدرسة",
+            "school_name": "اسم المدرسة",
+            "school_code_unique": "رمز المدرسة (فريد، 3-5 أحرف)",
+            "save_school": "حفظ المدرسة",
+            "add_user": "إضافة مستخدم",
+            "full_name": "الاسم الكامل",
+            "password_hint": "اتركه فارغًا للاحتفاظ بكلمة المرور الحالية.",
+            "save_user": "حفظ المستخدم",
+            "edit_incident_details": "تعديل تفاصيل الحادثة",
+            "status_pending": "قيد الانتظار",
+            "status_resolved": "تم حلها",
+            "status_escalated": "تم التصعيد",
+            "status_in_school_suspension": "إيقاف داخل المدرسة",
+            "status_suspended": "موقوف",
+            "status_parent_informed": "تم إبلاغ الأهل",
+            "academic_summary": "الملخص الأكاديمي",
+            "academic_emerging": "ناشئ",
+            "academic_working_towards": "يعمل على تحقيق",
+            "academic_meeting": "يفي بالتوقعات",
+            "academic_exceeding": "يتجاوز التوقعات",
+            "attitude_to_learning": "السلوك تجاه التعلم",
+            "attitude_attentive": "منتبه",
+            "attitude_disruptive": "مزعج",
+            "attitude_independent_learner": "متعلم مستقل",
+            "attitude_team_member": "عضو فريق",
+            "attitude_punctual": "دقيق في المواعيد",
+            "attitude_misses_lessons": "يتغيب عن الدروس",
+            "attitude_pod": "POD",
+            "attitude_g&t": "G&T",
+            "award_behavior": "منح سلوك",
+            "save_changes": "حفظ التغييرات",
+            "award_positive_behavior": "منح سلوك إيجابي",
+            "behavior_type": "نوع السلوك",
+            "notes_optional": "ملاحظات (اختياري)",
+            "bulk_upload_students": "رفع جماعي للطلاب",
+            "paste_csv_data": "لصق بيانات CSV",
+            "csv_format_hint": "التنسيق المطلوب: الاسم، الصف، الجنس، الجنسية. كل طالب في سطر جديد.",
+            "upload_students": "رفع الطلاب",
+            "add_award_type": "إضافة نوع جائزة",
+            "award_name": "اسم الجائزة",
+            "points": "النقاط",
+            "icon": "أيقونة",
+            "search": "بحث",
+            "filter": "تصفية",
+            "clear": "مسح",
+            "all": "الكل"
+        }
+    };
+    
+    function applyTranslation(lang) {
+        const targetLang = translations[lang] || {};
+        const fallbackLang = translations['en'];
+
+        document.querySelectorAll('[data-lang-key]').forEach(el => {
+            const key = el.dataset.langKey;
+            const defaultText = fallbackLang[key];
+            if (defaultText) { 
+                 el.textContent = targetLang[key] || defaultText;
+            }
+        });
+
+        document.querySelectorAll('[data-lang-key-format]').forEach(el => {
+            try {
+                const data = JSON.parse(el.dataset.langKeyFormat);
+                const key = data.key;
+                let textTemplate = targetLang[key] || fallbackLang[key];
+
+                if (textTemplate) {
+                     data.params.forEach((param, index) => {
+                        textTemplate = textTemplate.replace(`{${index}}`, param);
+                    });
+                    el.textContent = textTemplate;
+                }
+            } catch(e) { console.error("Failed to parse lang key format", el.dataset.langKeyFormat)}
+        });
+    }
+
+    function setLanguage(lang) {
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+        const langEnBtn = document.getElementById('lang-en-btn');
+        const langArBtn = document.getElementById('lang-ar-btn');
+
+        if (lang === 'ar') {
+            langArBtn.classList.add('bg-indigo-600', 'text-white');
+            langArBtn.classList.remove('bg-white', 'text-gray-600');
+            langEnBtn.classList.remove('bg-indigo-600', 'text-white');
+            langEnBtn.classList.add('bg-white', 'text-gray-600');
+        } else {
+            langEnBtn.classList.add('bg-indigo-600', 'text-white');
+            langEnBtn.classList.remove('bg-white', 'text-gray-600');
+            langArBtn.classList.remove('bg-indigo-600', 'text-white');
+            langArBtn.classList.add('bg-white', 'text-gray-600');
+        }
+        
+        // Force a full re-render of the current view to apply translations correctly
+        switchView(currentView, currentStudentId);
+    }
+    
+    document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
+
