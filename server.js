@@ -17,10 +17,10 @@ app.use(express.static(path.join(__dirname, '')));
 // --- Database Configuration ---
 // IMPORTANT: Replace these values with your actual MySQL server details.
 const dbConfig = {
-    host: 'localhost',
-    user: 'root',
-    password: 'JEPHUNEH', // <-- CHANGE THIS
-    database: 'edufocus_final_db',        // <-- Make sure this database exists
+    host: '34.123.254.168',
+    user: 'admin',
+    password: 'L@g!n@%$()', // <-- CHANGE THIS
+    database: 'edufocus_db',        // <-- Make sure this database exists
     connectionLimit: 10
 };
 
