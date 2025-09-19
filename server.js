@@ -11,6 +11,9 @@ const port = 3002; // You can change this port if needed
 app.use(cors());
 app.use(express.json());
 
+const path = require('path');
+app.use(express.static(path.join(__dirname, '')));
+
 // --- Database Configuration ---
 // IMPORTANT: Replace these values with your actual MySQL server details.
 const dbConfig = {
