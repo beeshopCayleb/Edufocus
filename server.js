@@ -31,7 +31,12 @@ const pool = mysql.createPool(dbConfig);
 const getConnection = () => pool.getConnection();
 
 // --- API Endpoints ---
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'Edufocus_multitenancy.html'));
+});
 
+// POST /api/login
+app.post('/api/login', async (req, res) => {
 // POST /api/login
 app.post('/api/login', async (req, res) => {
     const { email, password, schoolCode } = req.body;
